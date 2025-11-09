@@ -1,14 +1,26 @@
-import { useState, useEffect } from 'react';
-import { apiClient } from '../App';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import PaymentModal from '../components/PaymentModal';
-import { Plus, Pencil, Trash2, CheckCircle, Calendar } from 'lucide-react';
-import { toast } from 'sonner';
+import { useState, useEffect } from "react";
+import { apiClient } from "../App";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from "@/components/ui/dialog";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import PaymentModal from "../components/PaymentModal";
+import { Plus, Pencil, Trash2, CheckCircle, Calendar } from "lucide-react";
+import { toast } from "sonner";
 
 const FixedExpenses = () => {
   const [expenses, setExpenses] = useState([]);
@@ -18,22 +30,27 @@ const FixedExpenses = () => {
   const [editingExpense, setEditingExpense] = useState(null);
   const [currentMonth, setCurrentMonth] = useState(new Date().getMonth() + 1);
   const [currentYear, setCurrentYear] = useState(new Date().getFullYear());
-  const [paymentModal, setPaymentModal] = useState({ open: false, expense: null });
+  const [paymentModal, setPaymentModal] = useState({
+    open: false,
+    expense: null,
+  });
   const [formData, setFormData] = useState({
-    name: '',
-    category_id: '',
-    amount: '',
-    due_day: ''
+    name: "",
+    category_id: "",
+    amount: "",
+    due_day: "",
   });
 
   const fetchExpenses = async () => {
     try {
       setLoading(true);
-      const response = await apiClient.get(`/fixed-expenses?month=${currentMonth}&year=${currentYear}`);
+      const response = await apiClient.get(
+        `/fixed_expenses_months?month=${currentMonth}&year=${currentYear}`,
+      );
       setExpenses(response.data);
     } catch (error) {
-      console.error('Error fetching expenses:', error);
-      toast.error('Erro ao carregar gastos fixos');
+      console.error("Error fetching expenses:", error);
+      toast.error("Erro ao carregar gastos fixos");
     } finally {
       setLoading(false);
     }
@@ -41,10 +58,10 @@ const FixedExpenses = () => {
 
   const fetchCategories = async () => {
     try {
-      const response = await apiClient.get('/categories');
+      const response = await apiClient.get("/categories");
       setCategories(response.data);
     } catch (error) {
-      console.error('Error fetching categories:', error);
+      console.error("Error fetching categories:", error);
     }
   };
 
@@ -57,77 +74,90 @@ const FixedExpenses = () => {
   }, [currentMonth, currentYear]);
 
   const handleCreate = async () => {
-    if (!formData.name || !formData.category_id || !formData.amount || !formData.due_day) {
-      toast.error('Preencha todos os campos');
+    if (
+      !formData.name ||
+      !formData.category_id ||
+      !formData.amount ||
+      !formData.due_day
+    ) {
+      toast.error("Preencha todos os campos");
       return;
     }
 
     try {
       const expenseId = `fixed-${Date.now()}`;
-      await apiClient.post('/fixed-expenses', {
+      await apiClient.post("/fixed_expense_templates", {
         fixed_expense_id: expenseId,
         ...formData,
         amount: parseFloat(formData.amount),
         due_day: parseInt(formData.due_day),
         month: currentMonth,
-        year: currentYear
+        year: currentYear,
       });
-      toast.success('Gasto fixo adicionado!');
+      toast.success("Gasto fixo adicionado!");
       setModalOpen(false);
-      setFormData({ name: '', category_id: '', amount: '', due_day: '' });
+      setFormData({ name: "", category_id: "", amount: "", due_day: "" });
       fetchExpenses();
     } catch (error) {
-      console.error('Error creating expense:', error);
-      toast.error('Erro ao criar gasto fixo');
+      console.error("Error creating expense:", error);
+      toast.error("Erro ao criar gasto fixo");
     }
   };
 
   const handleUpdate = async () => {
-    if (!formData.name || !formData.category_id || !formData.amount || !formData.due_day) {
-      toast.error('Preencha todos os campos');
+    if (
+      !formData.name ||
+      !formData.category_id ||
+      !formData.amount ||
+      !formData.due_day
+    ) {
+      toast.error("Preencha todos os campos");
       return;
     }
 
     try {
-      await apiClient.put(`/fixed-expenses/${editingExpense.id}`, {
+      await apiClient.put(`/fixed_expenses_months/${editingExpense.id}`, {
         ...formData,
         amount: parseFloat(formData.amount),
-        due_day: parseInt(formData.due_day)
+        due_day: parseInt(formData.due_day),
       });
-      toast.success('Gasto fixo atualizado!');
+      toast.success("Gasto fixo atualizado!");
       setModalOpen(false);
       setEditingExpense(null);
-      setFormData({ name: '', category_id: '', amount: '', due_day: '' });
+      setFormData({ name: "", category_id: "", amount: "", due_day: "" });
       fetchExpenses();
     } catch (error) {
-      console.error('Error updating expense:', error);
-      toast.error('Erro ao atualizar gasto fixo');
+      console.error("Error updating expense:", error);
+      toast.error("Erro ao atualizar gasto fixo");
     }
   };
 
   const handleDelete = async (id) => {
-    if (!window.confirm('Tem certeza que deseja excluir este gasto?')) return;
+    if (!window.confirm("Tem certeza que deseja excluir este gasto?")) return;
 
     try {
-      await apiClient.delete(`/fixed-expenses/${id}`);
-      toast.success('Gasto fixo excluído!');
+      await apiClient.delete(`/fixed_expenses_months/${id}`);
+      toast.success("Gasto fixo excluído!");
       fetchExpenses();
     } catch (error) {
-      console.error('Error deleting expense:', error);
-      toast.error('Erro ao excluir gasto fixo');
+      console.error("Error deleting expense:", error);
+      toast.error("Erro ao excluir gasto fixo");
     }
   };
 
   const handleMarkAsPaid = async (paymentMethod) => {
     try {
-      await apiClient.post(`/fixed-expenses/${paymentModal.expense.id}/mark-paid`, {
-        payment_method: paymentMethod
-      });
-      toast.success('Despesa marcada como paga!');
+      await apiClient.post(
+        `/fixed_expenses_months/${paymentModal.expense.id}/mark-as-paid`,
+        {
+          payment_method: paymentMethod,
+        },
+      );
+      toast.success("Despesa marcada como paga!");
       fetchExpenses();
     } catch (error) {
-      console.error('Error marking as paid:', error);
-      toast.error('Erro ao marcar como paga');
+      console.error("Error marking as paid:", error);
+      toast.error("Erro ao marcar como paga");
     }
   };
 
@@ -137,24 +167,37 @@ const FixedExpenses = () => {
       name: expense.name,
       category_id: expense.category_id,
       amount: expense.amount.toString(),
-      due_day: expense.due_day.toString()
+      due_day: expense.due_day.toString(),
     });
     setModalOpen(true);
   };
 
   const openCreateModal = () => {
     setEditingExpense(null);
-    setFormData({ name: '', category_id: '', amount: '', due_day: '' });
+    setFormData({ name: "", category_id: "", amount: "", due_day: "" });
     setModalOpen(true);
   };
 
   const formatCurrency = (value) => {
-    return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value);
+    return new Intl.NumberFormat("pt-BR", {
+      style: "currency",
+      currency: "BRL",
+    }).format(value);
   };
 
   const monthNames = [
-    'Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho',
-    'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'
+    "Janeiro",
+    "Fevereiro",
+    "Março",
+    "Abril",
+    "Maio",
+    "Junho",
+    "Julho",
+    "Agosto",
+    "Setembro",
+    "Outubro",
+    "Novembro",
+    "Dezembro",
   ];
 
   if (loading) {
@@ -189,7 +232,9 @@ const FixedExpenses = () => {
           data-testid="month-selector"
         >
           {monthNames.map((name, index) => (
-            <option key={index} value={index + 1}>{name}</option>
+            <option key={index} value={index + 1}>
+              {name}
+            </option>
           ))}
         </select>
         <select
@@ -198,8 +243,10 @@ const FixedExpenses = () => {
           className="px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-emerald-500"
           data-testid="year-selector"
         >
-          {[2023, 2024, 2025, 2026].map(year => (
-            <option key={year} value={year}>{year}</option>
+          {[2023, 2024, 2025, 2026].map((year) => (
+            <option key={year} value={year}>
+              {year}
+            </option>
           ))}
         </select>
       </div>
@@ -213,24 +260,45 @@ const FixedExpenses = () => {
             <table className="w-full">
               <thead>
                 <tr className="border-b border-slate-200">
-                  <th className="text-left py-3 px-4 font-semibold text-slate-700">Descrição</th>
-                  <th className="text-left py-3 px-4 font-semibold text-slate-700">Categoria</th>
-                  <th className="text-right py-3 px-4 font-semibold text-slate-700">Valor</th>
-                  <th className="text-center py-3 px-4 font-semibold text-slate-700">Vencimento</th>
-                  <th className="text-center py-3 px-4 font-semibold text-slate-700">Status</th>
-                  <th className="text-center py-3 px-4 font-semibold text-slate-700">Ações</th>
+                  <th className="text-left py-3 px-4 font-semibold text-slate-700">
+                    Descrição
+                  </th>
+                  <th className="text-left py-3 px-4 font-semibold text-slate-700">
+                    Categoria
+                  </th>
+                  <th className="text-right py-3 px-4 font-semibold text-slate-700">
+                    Valor
+                  </th>
+                  <th className="text-center py-3 px-4 font-semibold text-slate-700">
+                    Vencimento
+                  </th>
+                  <th className="text-center py-3 px-4 font-semibold text-slate-700">
+                    Status
+                  </th>
+                  <th className="text-center py-3 px-4 font-semibold text-slate-700">
+                    Ações
+                  </th>
                 </tr>
               </thead>
               <tbody>
                 {expenses.map((expense) => {
-                  const category = categories.find(c => c.id === expense.category_id);
+                  const category = categories.find(
+                    (c) => c.id === expense.category_id,
+                  );
                   return (
-                    <tr key={expense.id} className="border-b border-slate-100 hover:bg-slate-50">
-                      <td className="py-3 px-4 font-medium text-slate-900">{expense.name}</td>
+                    <tr
+                      key={expense.id}
+                      className="border-b border-slate-100 hover:bg-slate-50"
+                    >
+                      <td className="py-3 px-4 font-medium text-slate-900">
+                        {expense.name}
+                      </td>
                       <td className="py-3 px-4">
                         <div className="flex items-center gap-2">
                           <span className="text-xl">{category?.icon}</span>
-                          <span className="text-sm text-slate-600">{category?.name}</span>
+                          <span className="text-sm text-slate-600">
+                            {category?.name}
+                          </span>
                         </div>
                       </td>
                       <td className="text-right py-3 px-4 font-semibold text-slate-900">
@@ -240,22 +308,27 @@ const FixedExpenses = () => {
                         Dia {expense.due_day}
                       </td>
                       <td className="text-center py-3 px-4">
-                        <span className={`
+                        <span
+                          className={`
                           inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs font-medium
-                          ${expense.status === 'paid' 
-                            ? 'bg-emerald-100 text-emerald-700' 
-                            : 'bg-amber-100 text-amber-700'
+                          ${
+                            expense.status === "paid"
+                              ? "bg-emerald-100 text-emerald-700"
+                              : "bg-amber-100 text-amber-700"
                           }
-                        `}>
-                          {expense.status === 'paid' ? '✓ Pago' : 'Pendente'}
+                        `}
+                        >
+                          {expense.status === "paid" ? "✓ Pago" : "Pendente"}
                         </span>
                       </td>
                       <td className="text-center py-3 px-4">
                         <div className="flex items-center justify-center gap-2">
-                          {expense.status === 'pending' && (
+                          {expense.status === "pending" && (
                             <Button
                               size="sm"
-                              onClick={() => setPaymentModal({ open: true, expense })}
+                              onClick={() =>
+                                setPaymentModal({ open: true, expense })
+                              }
                               className="bg-emerald-500 hover:bg-emerald-600"
                               data-testid={`mark-paid-${expense.id}`}
                             >
@@ -295,7 +368,9 @@ const FixedExpenses = () => {
       <Dialog open={modalOpen} onOpenChange={setModalOpen}>
         <DialogContent data-testid="expense-modal">
           <DialogHeader>
-            <DialogTitle>{editingExpense ? 'Editar Gasto Fixo' : 'Novo Gasto Fixo'}</DialogTitle>
+            <DialogTitle>
+              {editingExpense ? "Editar Gasto Fixo" : "Novo Gasto Fixo"}
+            </DialogTitle>
           </DialogHeader>
           <div className="space-y-4 py-4">
             <div className="space-y-2">
@@ -303,7 +378,9 @@ const FixedExpenses = () => {
               <Input
                 id="name"
                 value={formData.name}
-                onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                onChange={(e) =>
+                  setFormData({ ...formData, name: e.target.value })
+                }
                 placeholder="Ex: Aluguel"
                 data-testid="expense-name-input"
               />
@@ -312,7 +389,9 @@ const FixedExpenses = () => {
               <Label htmlFor="category">Categoria</Label>
               <Select
                 value={formData.category_id}
-                onValueChange={(value) => setFormData({ ...formData, category_id: value })}
+                onValueChange={(value) =>
+                  setFormData({ ...formData, category_id: value })
+                }
               >
                 <SelectTrigger data-testid="category-select">
                   <SelectValue placeholder="Selecione uma categoria" />
@@ -333,7 +412,9 @@ const FixedExpenses = () => {
                 type="number"
                 step="0.01"
                 value={formData.amount}
-                onChange={(e) => setFormData({ ...formData, amount: e.target.value })}
+                onChange={(e) =>
+                  setFormData({ ...formData, amount: e.target.value })
+                }
                 placeholder="0.00"
                 data-testid="expense-amount-input"
               />
@@ -346,7 +427,9 @@ const FixedExpenses = () => {
                 min="1"
                 max="31"
                 value={formData.due_day}
-                onChange={(e) => setFormData({ ...formData, due_day: e.target.value })}
+                onChange={(e) =>
+                  setFormData({ ...formData, due_day: e.target.value })
+                }
                 placeholder="1-31"
                 data-testid="expense-due-day-input"
               />
@@ -361,7 +444,7 @@ const FixedExpenses = () => {
               className="bg-emerald-500 hover:bg-emerald-600"
               data-testid="save-expense-btn"
             >
-              {editingExpense ? 'Atualizar' : 'Criar'}
+              {editingExpense ? "Atualizar" : "Criar"}
             </Button>
           </DialogFooter>
         </DialogContent>

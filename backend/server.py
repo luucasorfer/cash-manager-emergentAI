@@ -422,7 +422,7 @@ async def delete_fixed_expense_template(template_id: int, db: AsyncSession = Dep
 
 
 # Fixed Expenses by Month
-@api_router.get("/fixed-expenses", response_model=List[FixedExpenseMonth])
+@api_router.get("/fixed_expenses_months", response_model=List[FixedExpenseMonth])
 async def get_fixed_expenses(month: Optional[int] = None, year: Optional[int] = None, db: AsyncSession = Depends(get_db)):
     query = select(FixedExpenseMonthDB)
     if month is not None:
@@ -432,10 +432,9 @@ async def get_fixed_expenses(month: Optional[int] = None, year: Optional[int] = 
     
     result = await db.execute(query)
     expenses = result.scalars().all()
-    expenses = result.scalars().all()
     return [FixedExpenseMonth.model_validate(e) for e in expenses]
 
-@api_router.post("/fixed-expenses", response_model=FixedExpenseMonth)
+@api_router.post("/fixed_expense_templates", response_model=FixedExpenseMonth)
 async def create_fixed_expense_month(input: FixedExpenseMonthCreate, db: AsyncSession = Depends(get_db)):
     db_expense = FixedExpenseMonthDB(
         fixed_expense_id=input.fixed_expense_id,
@@ -453,7 +452,7 @@ async def create_fixed_expense_month(input: FixedExpenseMonthCreate, db: AsyncSe
     await db.refresh(db_expense)
     return FixedExpenseMonth.model_validate(db_expense)
 
-@api_router.put("/fixed-expenses/{expense_id}", response_model=FixedExpenseMonth)
+@api_router.put("/fixed_expenses_months/{expense_id}", response_model=FixedExpenseMonth)
 async def update_fixed_expense_month(expense_id: int, input: FixedExpenseMonthUpdate, db: AsyncSession = Depends(get_db)):
     result = await db.execute(select(FixedExpenseMonthDB).where(FixedExpenseMonthDB.id == expense_id))
     expense = result.scalar_one_or_none()
@@ -468,7 +467,7 @@ async def update_fixed_expense_month(expense_id: int, input: FixedExpenseMonthUp
     await db.refresh(expense)
     return FixedExpenseMonth.model_validate(expense)
 
-@api_router.post("/fixed-expenses/{expense_id}/mark-as-paid", response_model=FixedExpenseMonth)
+@api_router.post("/fixed_expenses_months/{expense_id}/mark-as-paid", response_model=FixedExpenseMonth)
 async def mark_fixed_expense_as_paid(expense_id: int, input: MarkAsPaidRequest, db: AsyncSession = Depends(get_db)):
     result = await db.execute(select(FixedExpenseMonthDB).where(FixedExpenseMonthDB.id == expense_id))
     expense = result.scalar_one_or_none()
@@ -483,7 +482,7 @@ async def mark_fixed_expense_as_paid(expense_id: int, input: MarkAsPaidRequest, 
     await db.refresh(expense)
     return FixedExpenseMonth.model_validate(expense)
 
-@api_router.delete("/fixed-expenses/{expense_id}")
+@api_router.delete("/fixed_expenses_months/{expense_id}")
 async def delete_fixed_expense_month(expense_id: int, db: AsyncSession = Depends(get_db)):
     result = await db.execute(select(FixedExpenseMonthDB).where(FixedExpenseMonthDB.id == expense_id))
     expense = result.scalar_one_or_none()
@@ -495,7 +494,7 @@ async def delete_fixed_expense_month(expense_id: int, db: AsyncSession = Depends
 
 
 # Variable Expenses
-@api_router.get("/variable-expenses", response_model=List[VariableExpense])
+@api_router.get("/variable_expenses", response_model=List[VariableExpense])
 async def get_variable_expenses(month: Optional[int] = None, year: Optional[int] = None, db: AsyncSession = Depends(get_db)):
     query = select(VariableExpenseDB)
     
@@ -515,7 +514,7 @@ async def get_variable_expenses(month: Optional[int] = None, year: Optional[int]
     
     return [VariableExpense.model_validate(e) for e in all_expenses]
 
-@api_router.post("/variable-expenses", response_model=List[VariableExpense])
+@api_router.post("/variable_expenses", response_model=List[VariableExpense])
 async def create_variable_expense(input: VariableExpenseCreate, db: AsyncSession = Depends(get_db)):
     created_expenses = []
     
@@ -551,7 +550,7 @@ async def create_variable_expense(input: VariableExpenseCreate, db: AsyncSession
     
     return [VariableExpense.model_validate(exp) for exp in created_expenses]
 
-@api_router.put("/variable-expenses/{expense_id}", response_model=VariableExpense)
+@api_router.put("/variable_expenses/{expense_id}", response_model=VariableExpense)
 async def update_variable_expense(expense_id: int, input: VariableExpenseUpdate, db: AsyncSession = Depends(get_db)):
     result = await db.execute(select(VariableExpenseDB).where(VariableExpenseDB.id == expense_id))
     expense = result.scalar_one_or_none()
@@ -569,7 +568,7 @@ async def update_variable_expense(expense_id: int, input: VariableExpenseUpdate,
     await db.refresh(expense)
     return VariableExpense.model_validate(expense)
 
-@api_router.post("/variable-expenses/{expense_id}/mark-as-paid", response_model=VariableExpense)
+@api_router.post("/variable_expenses/{expense_id}/mark-as-paid", response_model=VariableExpense)
 async def mark_variable_expense_as_paid(expense_id: int, input: MarkAsPaidRequest, db: AsyncSession = Depends(get_db)):
     result = await db.execute(select(VariableExpenseDB).where(VariableExpenseDB.id == expense_id))
     expense = result.scalar_one_or_none()
@@ -584,7 +583,7 @@ async def mark_variable_expense_as_paid(expense_id: int, input: MarkAsPaidReques
     await db.refresh(expense)
     return VariableExpense.model_validate(expense)
 
-@api_router.delete("/variable-expenses/{expense_id}")
+@api_router.delete("/variable_expenses/{expense_id}")
 async def delete_variable_expense(expense_id: int, db: AsyncSession = Depends(get_db)):
     result = await db.execute(select(VariableExpenseDB).where(VariableExpenseDB.id == expense_id))
     expense = result.scalar_one_or_none()
@@ -659,20 +658,20 @@ async def delete_income(income_id: int, db: AsyncSession = Depends(get_db)):
 
 
 # Emergency Reserve
-@api_router.get("/emergency-reserve", response_model=List[EmergencyReserve])
+@api_router.get("/emergency_reserve", response_model=List[EmergencyReserve])
 async def get_emergency_reserve(db: AsyncSession = Depends(get_db)):
     result = await db.execute(select(EmergencyReserveDB).order_by(EmergencyReserveDB.date.desc()))
     reserves = result.scalars().all()
     return [EmergencyReserve.model_validate(r) for r in reserves]
 
-@api_router.get("/emergency-reserve/total")
+@api_router.get("/emergency_reserve/total")
 async def get_emergency_reserve_total(db: AsyncSession = Depends(get_db)):
     result = await db.execute(select(EmergencyReserveDB))
     reserves = result.scalars().all()
     total = sum(r.amount for r in reserves)
     return {"total": total}
 
-@api_router.post("/emergency-reserve", response_model=EmergencyReserve)
+@api_router.post("/emergency_reserve", response_model=EmergencyReserve)
 async def create_emergency_reserve(input: EmergencyReserveCreate, db: AsyncSession = Depends(get_db)):
     db_reserve = EmergencyReserveDB(
         amount=input.amount,
@@ -685,7 +684,7 @@ async def create_emergency_reserve(input: EmergencyReserveCreate, db: AsyncSessi
     await db.refresh(db_reserve)
     return EmergencyReserve.model_validate(db_reserve)
 
-@api_router.delete("/emergency-reserve/{reserve_id}")
+@api_router.delete("/emergency_reserve/{reserve_id}")
 async def delete_emergency_reserve(reserve_id: int, db: AsyncSession = Depends(get_db)):
     result = await db.execute(select(EmergencyReserveDB).where(EmergencyReserveDB.id == reserve_id))
     reserve = result.scalar_one_or_none()
@@ -697,13 +696,13 @@ async def delete_emergency_reserve(reserve_id: int, db: AsyncSession = Depends(g
 
 
 # Savings Goals
-@api_router.get("/savings-goals", response_model=List[SavingsGoal])
+@api_router.get("/savings_goals", response_model=List[SavingsGoal])
 async def get_savings_goals(db: AsyncSession = Depends(get_db)):
     result = await db.execute(select(SavingsGoalDB))
     goals = result.scalars().all()
     return [SavingsGoal.model_validate(g) for g in goals]
 
-@api_router.post("/savings-goals", response_model=SavingsGoal)
+@api_router.post("/savings_goals", response_model=SavingsGoal)
 async def create_savings_goal(input: SavingsGoalCreate, db: AsyncSession = Depends(get_db)):
     db_goal = SavingsGoalDB(
         name=input.name,
@@ -720,7 +719,7 @@ async def create_savings_goal(input: SavingsGoalCreate, db: AsyncSession = Depen
     await db.refresh(db_goal)
     return SavingsGoal.model_validate(db_goal)
 
-@api_router.put("/savings-goals/{goal_id}", response_model=SavingsGoal)
+@api_router.put("/savings_goals/{goal_id}", response_model=SavingsGoal)
 async def update_savings_goal(goal_id: int, input: SavingsGoalUpdate, db: AsyncSession = Depends(get_db)):
     result = await db.execute(select(SavingsGoalDB).where(SavingsGoalDB.id == goal_id))
     goal = result.scalar_one_or_none()
@@ -735,7 +734,7 @@ async def update_savings_goal(goal_id: int, input: SavingsGoalUpdate, db: AsyncS
     await db.refresh(goal)
     return SavingsGoal.model_validate(goal)
 
-@api_router.delete("/savings-goals/{goal_id}")
+@api_router.delete("/savings_goals/{goal_id}")
 async def delete_savings_goal(goal_id: int, db: AsyncSession = Depends(get_db)):
     # Delete all contributions first
     await db.execute(delete(GoalContributionDB).where(GoalContributionDB.goal_id == goal_id))
@@ -751,7 +750,7 @@ async def delete_savings_goal(goal_id: int, db: AsyncSession = Depends(get_db)):
 
 
 # Goal Contributions
-@api_router.get("/savings-goals/{goal_id}/contributions", response_model=List[GoalContribution])
+@api_router.get("/savings_goals/{goal_id}/contributions", response_model=List[GoalContribution])
 async def get_goal_contributions(goal_id: int, db: AsyncSession = Depends(get_db)):
     result = await db.execute(
         select(GoalContributionDB)
@@ -761,7 +760,7 @@ async def get_goal_contributions(goal_id: int, db: AsyncSession = Depends(get_db
     contributions = result.scalars().all()
     return [GoalContribution.model_validate(c) for c in contributions]
 
-@api_router.post("/savings-goals/{goal_id}/contributions", response_model=GoalContribution)
+@api_router.post("/savings_goals/{goal_id}/contributions", response_model=GoalContribution)
 async def create_goal_contribution(goal_id: int, input: GoalContributionCreate, db: AsyncSession = Depends(get_db)):
     db_contribution = GoalContributionDB(
         goal_id=goal_id,
@@ -785,7 +784,7 @@ async def create_goal_contribution(goal_id: int, input: GoalContributionCreate, 
     
     return GoalContribution.model_validate(db_contribution)
 
-@api_router.delete("/savings-goals/{goal_id}/contributions/{contribution_id}")
+@api_router.delete("/savings_goals/{goal_id}/contributions/{contribution_id}")
 async def delete_goal_contribution(goal_id: int, contribution_id: int, db: AsyncSession = Depends(get_db)):
     result = await db.execute(
         select(GoalContributionDB)
