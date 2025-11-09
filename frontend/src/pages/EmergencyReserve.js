@@ -1,38 +1,44 @@
-import { useState, useEffect } from 'react';
-import { apiClient } from '../App';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Textarea } from '@/components/ui/textarea';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
-import { Plus, TrendingUp, TrendingDown, Trash2, Shield } from 'lucide-react';
-import { toast } from 'sonner';
+import { useState, useEffect } from "react";
+import { apiClient } from "../App";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from "@/components/ui/dialog";
+import { Plus, TrendingUp, TrendingDown, Trash2, Shield } from "lucide-react";
+import { toast } from "sonner";
 
 const EmergencyReserve = () => {
   const [reserves, setReserves] = useState([]);
   const [balance, setBalance] = useState(0);
   const [loading, setLoading] = useState(true);
   const [modalOpen, setModalOpen] = useState(false);
-  const [transactionType, setTransactionType] = useState('deposit');
+  const [transactionType, setTransactionType] = useState("deposit");
   const [formData, setFormData] = useState({
-    amount: '',
-    description: '',
-    date: new Date().toISOString().split('T')[0]
+    amount: "",
+    description: "",
+    date: new Date().toISOString().split("T")[0],
   });
 
   const fetchReserves = async () => {
     try {
       setLoading(true);
       const [reservesRes, balanceRes] = await Promise.all([
-        apiClient.get('/emergency-reserve'),
-        apiClient.get('/emergency-reserve/balance')
+        apiClient.get("/emergency-reserve"),
+        apiClient.get("/emergency-reserve/total"),
       ]);
       setReserves(reservesRes.data);
-      setBalance(balanceRes.data.balance);
+      setBalance(balanceRes.data.total);
     } catch (error) {
-      console.error('Error fetching reserves:', error);
-      toast.error('Erro ao carregar reserva de emergência');
+      console.error("Error fetching reserves:", error);
+      toast.error("Erro ao carregar reserva de emergência");
     } finally {
       setLoading(false);
     }
@@ -44,51 +50,67 @@ const EmergencyReserve = () => {
 
   const handleCreate = async () => {
     if (!formData.amount) {
-      toast.error('Informe o valor');
+      toast.error("Informe o valor");
       return;
     }
 
     try {
       const amount = parseFloat(formData.amount);
-      const finalAmount = transactionType === 'withdrawal' ? -amount : amount;
-      
-      await apiClient.post('/emergency-reserve', {
+      const finalAmount = transactionType === "withdrawal" ? -amount : amount;
+
+      await apiClient.post("/emergency-reserve", {
         amount: finalAmount,
         description: formData.description,
-        date: new Date(formData.date).toISOString()
+        date: new Date(formData.date).toISOString(),
       });
-      
-      toast.success(transactionType === 'deposit' ? 'Depósito realizado!' : 'Retirada realizada!');
+
+      toast.success(
+        transactionType === "deposit"
+          ? "Depósito realizado!"
+          : "Retirada realizada!",
+      );
       setModalOpen(false);
-      setFormData({ amount: '', description: '', date: new Date().toISOString().split('T')[0] });
+      setFormData({
+        amount: "",
+        description: "",
+        date: new Date().toISOString().split("T")[0],
+      });
       fetchReserves();
     } catch (error) {
-      console.error('Error creating reserve:', error);
-      toast.error('Erro ao registrar movimentação');
+      console.error("Error creating reserve:", error);
+      toast.error("Erro ao registrar movimentação");
     }
   };
 
   const handleDelete = async (id) => {
-    if (!window.confirm('Tem certeza que deseja excluir esta movimentação?')) return;
+    if (!window.confirm("Tem certeza que deseja excluir esta movimentação?"))
+      return;
 
     try {
       await apiClient.delete(`/emergency-reserve/${id}`);
-      toast.success('Movimentação excluída!');
+      toast.success("Movimentação excluída!");
       fetchReserves();
     } catch (error) {
-      console.error('Error deleting reserve:', error);
-      toast.error('Erro ao excluir movimentação');
+      console.error("Error deleting reserve:", error);
+      toast.error("Erro ao excluir movimentação");
     }
   };
 
   const openModal = (type) => {
     setTransactionType(type);
-    setFormData({ amount: '', description: '', date: new Date().toISOString().split('T')[0] });
+    setFormData({
+      amount: "",
+      description: "",
+      date: new Date().toISOString().split("T")[0],
+    });
     setModalOpen(true);
   };
 
   const formatCurrency = (value) => {
-    return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value);
+    return new Intl.NumberFormat("pt-BR", {
+      style: "currency",
+      currency: "BRL",
+    }).format(value);
   };
 
   if (loading) {
@@ -102,10 +124,12 @@ const EmergencyReserve = () => {
   return (
     <div className="space-y-6" data-testid="emergency-reserve-page">
       <div className="flex justify-between items-center">
-        <h1 className="text-3xl font-bold text-slate-900">Reserva de Emergência</h1>
+        <h1 className="text-3xl font-bold text-slate-900">
+          Reserva de Emergência
+        </h1>
         <div className="flex gap-2">
           <Button
-            onClick={() => openModal('deposit')}
+            onClick={() => openModal("deposit")}
             className="bg-emerald-500 hover:bg-emerald-600"
             data-testid="add-deposit-btn"
           >
@@ -113,7 +137,7 @@ const EmergencyReserve = () => {
             Adicionar
           </Button>
           <Button
-            onClick={() => openModal('withdrawal')}
+            onClick={() => openModal("withdrawal")}
             className="bg-rose-500 hover:bg-rose-600"
             data-testid="add-withdrawal-btn"
           >
@@ -128,7 +152,9 @@ const EmergencyReserve = () => {
         <CardContent className="p-8">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-violet-100 text-sm font-medium mb-2">Saldo da Reserva</p>
+              <p className="text-violet-100 text-sm font-medium mb-2">
+                Saldo da Reserva
+              </p>
               <h2 className="text-5xl font-bold">{formatCurrency(balance)}</h2>
             </div>
             <div className="p-4 bg-white/20 rounded-full">
@@ -148,17 +174,28 @@ const EmergencyReserve = () => {
             <table className="w-full">
               <thead>
                 <tr className="border-b border-slate-200">
-                  <th className="text-left py-3 px-4 font-semibold text-slate-700">Data</th>
-                  <th className="text-left py-3 px-4 font-semibold text-slate-700">Descrição</th>
-                  <th className="text-right py-3 px-4 font-semibold text-slate-700">Valor</th>
-                  <th className="text-center py-3 px-4 font-semibold text-slate-700">Ações</th>
+                  <th className="text-left py-3 px-4 font-semibold text-slate-700">
+                    Data
+                  </th>
+                  <th className="text-left py-3 px-4 font-semibold text-slate-700">
+                    Descrição
+                  </th>
+                  <th className="text-right py-3 px-4 font-semibold text-slate-700">
+                    Valor
+                  </th>
+                  <th className="text-center py-3 px-4 font-semibold text-slate-700">
+                    Ações
+                  </th>
                 </tr>
               </thead>
               <tbody>
                 {reserves.map((reserve) => (
-                  <tr key={reserve.id} className="border-b border-slate-100 hover:bg-slate-50">
+                  <tr
+                    key={reserve.id}
+                    className="border-b border-slate-100 hover:bg-slate-50"
+                  >
                     <td className="py-3 px-4 text-sm text-slate-600">
-                      {new Date(reserve.date).toLocaleDateString('pt-BR')}
+                      {new Date(reserve.date).toLocaleDateString("pt-BR")}
                     </td>
                     <td className="py-3 px-4">
                       <div className="flex items-center gap-2">
@@ -168,13 +205,18 @@ const EmergencyReserve = () => {
                           <TrendingDown size={18} className="text-rose-600" />
                         )}
                         <span className="text-slate-900">
-                          {reserve.description || (reserve.amount > 0 ? 'Depósito' : 'Retirada')}
+                          {reserve.description ||
+                            (reserve.amount > 0 ? "Depósito" : "Retirada")}
                         </span>
                       </div>
                     </td>
-                    <td className={`text-right py-3 px-4 font-semibold ${
-                      reserve.amount > 0 ? 'text-emerald-600' : 'text-rose-600'
-                    }`}>
+                    <td
+                      className={`text-right py-3 px-4 font-semibold ${
+                        reserve.amount > 0
+                          ? "text-emerald-600"
+                          : "text-rose-600"
+                      }`}
+                    >
                       {formatCurrency(Math.abs(reserve.amount))}
                     </td>
                     <td className="text-center py-3 px-4">
@@ -201,7 +243,9 @@ const EmergencyReserve = () => {
         <DialogContent data-testid="reserve-modal">
           <DialogHeader>
             <DialogTitle>
-              {transactionType === 'deposit' ? 'Adicionar à Reserva' : 'Retirar da Reserva'}
+              {transactionType === "deposit"
+                ? "Adicionar à Reserva"
+                : "Retirar da Reserva"}
             </DialogTitle>
           </DialogHeader>
           <div className="space-y-4 py-4">
@@ -212,7 +256,9 @@ const EmergencyReserve = () => {
                 type="number"
                 step="0.01"
                 value={formData.amount}
-                onChange={(e) => setFormData({ ...formData, amount: e.target.value })}
+                onChange={(e) =>
+                  setFormData({ ...formData, amount: e.target.value })
+                }
                 placeholder="0.00"
                 data-testid="reserve-amount-input"
               />
@@ -223,7 +269,9 @@ const EmergencyReserve = () => {
                 id="date"
                 type="date"
                 value={formData.date}
-                onChange={(e) => setFormData({ ...formData, date: e.target.value })}
+                onChange={(e) =>
+                  setFormData({ ...formData, date: e.target.value })
+                }
                 data-testid="reserve-date-input"
               />
             </div>
@@ -232,7 +280,9 @@ const EmergencyReserve = () => {
               <Textarea
                 id="description"
                 value={formData.description}
-                onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+                onChange={(e) =>
+                  setFormData({ ...formData, description: e.target.value })
+                }
                 placeholder="Motivo da movimentação..."
                 rows={3}
                 data-testid="reserve-description-input"
@@ -245,9 +295,10 @@ const EmergencyReserve = () => {
             </Button>
             <Button
               onClick={handleCreate}
-              className={transactionType === 'deposit' 
-                ? 'bg-emerald-500 hover:bg-emerald-600' 
-                : 'bg-rose-500 hover:bg-rose-600'
+              className={
+                transactionType === "deposit"
+                  ? "bg-emerald-500 hover:bg-emerald-600"
+                  : "bg-rose-500 hover:bg-rose-600"
               }
               data-testid="save-reserve-btn"
             >

@@ -38,16 +38,6 @@ function setupDevServer(config) {
         return true;
       }
 
-      // Allow all emergent.sh subdomains
-      if (origin.match(/^https:\/\/([a-zA-Z0-9-]+\.)*emergent\.sh$/)) {
-        return true;
-      }
-
-      // Allow all emergentagent.com subdomains
-      if (origin.match(/^https:\/\/([a-zA-Z0-9-]+\.)*emergentagent\.com$/)) {
-        return true;
-      }
-
       // Allow all appspot.com subdomains (for App Engine)
       if (origin.match(/^https:\/\/([a-zA-Z0-9-]+\.)*appspot\.com$/)) {
         return true;
@@ -99,13 +89,13 @@ function setupDevServer(config) {
         // Process each file's changes
         Object.entries(changesByFile).forEach(([fileName, fileChanges]) => {
           // Recursively search for the file in the frontend folder
-          const frontendRoot = path.resolve(__dirname, '../..');
+          const frontendRoot = path.resolve(__dirname, "../..");
 
           // Helper function to get consistent relative path
           const getRelativePath = (absolutePath) => {
             const rel = path.relative(frontendRoot, absolutePath);
             // Ensure it starts with / for consistency
-            return '/' + rel;
+            return "/" + rel;
           };
 
           const findFileRecursive = (dir, filename) => {
@@ -210,13 +200,9 @@ function setupDevServer(config) {
                     return true;
                   });
 
-                node.children.forEach((child) =>
-                  sanitizeMetaAttributes(child),
-                );
+                node.children.forEach((child) => sanitizeMetaAttributes(child));
               } else if (t.isJSXFragment(node)) {
-                node.children.forEach((child) =>
-                  sanitizeMetaAttributes(child),
-                );
+                node.children.forEach((child) => sanitizeMetaAttributes(child));
               }
             };
 
@@ -231,9 +217,7 @@ function setupDevServer(config) {
 
               if (t.isJSXElement(wrapperExpression)) {
                 const innerChildren = wrapperExpression.children || [];
-                innerChildren.forEach((child) =>
-                  sanitizeMetaAttributes(child),
-                );
+                innerChildren.forEach((child) => sanitizeMetaAttributes(child));
                 return innerChildren;
               }
             } catch (parseError) {
@@ -270,7 +254,9 @@ function setupDevServer(config) {
 
                 // FIXED: Conditional processing based on change type
                 console.log(
-                  `[backend] Processing change type: ${change.type || "legacy"} for element: ${elementName}`,
+                  `[backend] Processing change type: ${
+                    change.type || "legacy"
+                  } for element: ${elementName}`,
                 );
 
                 if (
@@ -286,8 +272,7 @@ function setupDevServer(config) {
                   // Find existing className attribute
                   let classAttr = path.node.attributes.find(
                     (attr) =>
-                      t.isJSXAttribute(attr) &&
-                      attr.name.name === "className",
+                      t.isJSXAttribute(attr) && attr.name.name === "className",
                   );
 
                   // Capture old className value
@@ -348,17 +333,20 @@ function setupDevServer(config) {
 
                     const firstTextNode = targetTextNode;
                     const fallbackWhitespaceNode = children.find(
-                      (child) => t.isJSXText(child) && child.value.trim().length === 0,
+                      (child) =>
+                        t.isJSXText(child) && child.value.trim().length === 0,
                     );
 
                     const newContent = change.textContent;
                     let oldContent = "";
 
                     const preserveWhitespace = (originalValue, updatedCore) => {
-                      const leadingWhitespace =
-                        (originalValue.match(/^\s*/) || [""])[0];
-                      const trailingWhitespace =
-                        (originalValue.match(/\s*$/) || [""])[0];
+                      const leadingWhitespace = (originalValue.match(
+                        /^\s*/,
+                      ) || [""])[0];
+                      const trailingWhitespace = (originalValue.match(
+                        /\s*$/,
+                      ) || [""])[0];
                       return `${leadingWhitespace}${updatedCore}${trailingWhitespace}`;
                     };
 
@@ -430,7 +418,9 @@ function setupDevServer(config) {
                   }
                 } else {
                   // Track rejected change
-                  const reason = `Change must have valid type ('className', 'textContent', or 'content'). Received type: ${change.type || 'undefined'}`;
+                  const reason = `Change must have valid type ('className', 'textContent', or 'content'). Received type: ${
+                    change.type || "undefined"
+                  }`;
                   rejectedChanges.push({
                     change,
                     reason,
@@ -473,8 +463,12 @@ function setupDevServer(config) {
           const timestamp = Date.now();
           try {
             // Use -c flag for per-invocation git config to avoid modifying any config
-            execSync(`git -c user.name="visual-edit" -c user.email="support@emergent.sh" add "${targetFile}"`);
-            execSync(`git -c user.name="visual-edit" -c user.email="support@emergent.sh" commit -m "visual_edit_${timestamp}"`);
+            execSync(
+              `git -c user.name="visual-edit" -c user.email="support@gmail.com" add "${targetFile}"`,
+            );
+            execSync(
+              `git -c user.name="visual-edit" -c user.email="support@gmail.com" commit -m "visual_edit_${timestamp}"`,
+            );
           } catch (gitError) {
             console.error(`Git commit failed: ${gitError.message}`);
             // Continue even if git fails - file write succeeded

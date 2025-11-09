@@ -1,13 +1,15 @@
-from fastapi import FastAPI, APIRouter, HTTPException
+from fastapi import FastAPI, APIRouter, HTTPException, Depends
 from dotenv import load_dotenv
 from starlette.middleware.cors import CORSMiddleware
-from motor.motor_asyncio import AsyncIOMotorClient
+from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession, async_sessionmaker
+from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
+from sqlalchemy import String, Float, Integer, Boolean, DateTime, Enum as SQLEnum, select, delete, update as sql_update, Text
 import os
 import logging
 from pathlib import Path
 from pydantic import BaseModel, Field, ConfigDict
 from typing import List, Optional
-import uuid
+# import uuid  uuid # Removido pois os IDs agora são auto-incremento
 from datetime import datetime, timezone
 from enum import Enum
 
@@ -15,10 +17,18 @@ from enum import Enum
 ROOT_DIR = Path(__file__).parent
 load_dotenv(ROOT_DIR / '.env')
 
-# MongoDB connection
-mongo_url = os.environ['MONGO_URL']
-client = AsyncIOMotorClient(mongo_url)
-db = client[os.environ['DB_NAME']]
+# MySQL connection
+DATABASE_URL = os.environ.get('DATABASE_URL', 'mysql+aiomysql://root:@localhost/cash_management')
+engine = create_async_engine(DATABASE_URL, echo=False)
+async_session_maker = async_sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
+
+# Database models base
+class Base(DeclarativeBase):
+    pass
+
+async def get_db():
+    async with async_session_maker() as session:
+        yield session
 
 # Create the main app without a prefix
 app = FastAPI()
@@ -39,10 +49,106 @@ class PaymentMethod(str, Enum):
     CASH = "cash"
 
 
-# ============== MODELS ==============
+# ============== DATABASE MODELS ==============
+class CategoryDB(Base):
+    __tablename__ = "categories"
+    
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    name: Mapped[str] = mapped_column(String(255))
+    icon: Mapped[str] = mapped_column(String(50))
+    created_at: Mapped[datetime] = mapped_column(DateTime)
+
+class FixedExpenseTemplateDB(Base):
+    __tablename__ = "fixed_expense_templates"
+    
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    name: Mapped[str] = mapped_column(String(255))
+    category_id: Mapped[int] = mapped_column(Integer)
+    amount: Mapped[float] = mapped_column(Float)
+    due_day: Mapped[int] = mapped_column(Integer)
+    is_active: Mapped[bool] = mapped_column(Boolean, default=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime)
+
+class FixedExpenseMonthDB(Base):
+    __tablename__ = "fixed_expenses_months"
+    
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    fixed_expense_id: Mapped[int] = mapped_column(Integer)
+    name: Mapped[str] = mapped_column(String(255))
+    category_id: Mapped[int] = mapped_column(Integer)
+    amount: Mapped[float] = mapped_column(Float)
+    due_day: Mapped[int] = mapped_column(Integer)
+    month: Mapped[int] = mapped_column(Integer)
+    year: Mapped[int] = mapped_column(Integer)
+    status: Mapped[str] = mapped_column(String(20), default="pending")
+    payment_method: Mapped[Optional[str]] = mapped_column(String(20), nullable=True)
+    paid_date: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime)
+
+class VariableExpenseDB(Base):
+    __tablename__ = "variable_expenses"
+    
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    name: Mapped[str] = mapped_column(String(255))
+    category_id: Mapped[int] = mapped_column(Integer)
+    amount: Mapped[float] = mapped_column(Float)
+    payment_method: Mapped[Optional[str]] = mapped_column(String(20), nullable=True)
+    date: Mapped[datetime] = mapped_column(DateTime)
+    installments: Mapped[int] = mapped_column(Integer, default=1)
+    current_installment: Mapped[int] = mapped_column(Integer, default=1)
+    status: Mapped[str] = mapped_column(String(20), default="pending")
+    notes: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    paid_date: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime)
+
+class IncomeDB(Base):
+    __tablename__ = "incomes"
+    
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    name: Mapped[str] = mapped_column(String(255))
+    amount: Mapped[float] = mapped_column(Float)
+    date: Mapped[datetime] = mapped_column(DateTime)
+    is_recurring: Mapped[bool] = mapped_column(Boolean, default=False)
+    notes: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime)
+
+class EmergencyReserveDB(Base):
+    __tablename__ = "emergency_reserve"
+    
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    amount: Mapped[float] = mapped_column(Float)
+    date: Mapped[datetime] = mapped_column(DateTime)
+    description: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime)
+
+class SavingsGoalDB(Base):
+    __tablename__ = "savings_goals"
+    
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    name: Mapped[str] = mapped_column(String(255))
+    description: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    target_amount: Mapped[float] = mapped_column(Float)
+    current_amount: Mapped[float] = mapped_column(Float, default=0.0)
+    deadline: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
+    icon: Mapped[str] = mapped_column(String(50), default="🎯")
+    is_completed: Mapped[bool] = mapped_column(Boolean, default=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime)
+
+class GoalContributionDB(Base):
+    __tablename__ = "goal_contributions"
+    
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    goal_id: Mapped[int] = mapped_column(Integer)
+    amount: Mapped[float] = mapped_column(Float)
+    description: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    date: Mapped[datetime] = mapped_column(DateTime)
+    created_at: Mapped[datetime] = mapped_column(DateTime)
+
+
+# ============== PYDANTIC MODELS ==============
 class Category(BaseModel):
-    model_config = ConfigDict(extra="ignore")
-    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    model_config = ConfigDict(extra="ignore", from_attributes=True)
+    id: int
     name: str
     icon: str
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
@@ -53,11 +159,11 @@ class CategoryCreate(BaseModel):
 
 
 class FixedExpenseMonth(BaseModel):
-    model_config = ConfigDict(extra="ignore")
-    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
-    fixed_expense_id: str
+    model_config = ConfigDict(extra="ignore", from_attributes=True)
+    id: int
+    fixed_expense_id: int
     name: str
-    category_id: str
+    category_id: int
     amount: float
     due_day: int
     month: int
@@ -68,9 +174,9 @@ class FixedExpenseMonth(BaseModel):
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
 class FixedExpenseMonthCreate(BaseModel):
-    fixed_expense_id: str
+    fixed_expense_id: int
     name: str
-    category_id: str
+    category_id: int
     amount: float
     due_day: int
     month: int
@@ -87,10 +193,10 @@ class MarkAsPaidRequest(BaseModel):
 
 
 class FixedExpenseTemplate(BaseModel):
-    model_config = ConfigDict(extra="ignore")
-    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    model_config = ConfigDict(extra="ignore", from_attributes=True)
+    id: int
     name: str
-    category_id: str
+    category_id: int
     amount: float
     due_day: int
     is_active: bool = True
@@ -98,7 +204,7 @@ class FixedExpenseTemplate(BaseModel):
 
 class FixedExpenseTemplateCreate(BaseModel):
     name: str
-    category_id: str
+    category_id: int
     amount: float
     due_day: int
 
@@ -111,10 +217,10 @@ class FixedExpenseTemplateUpdate(BaseModel):
 
 
 class VariableExpense(BaseModel):
-    model_config = ConfigDict(extra="ignore")
-    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    model_config = ConfigDict(extra="ignore", from_attributes=True)
+    id: int
     name: str
-    category_id: str
+    category_id: int
     amount: float
     payment_method: Optional[PaymentMethod] = None
     date: datetime
@@ -127,7 +233,7 @@ class VariableExpense(BaseModel):
 
 class VariableExpenseCreate(BaseModel):
     name: str
-    category_id: str
+    category_id: int
     amount: float
     payment_method: Optional[PaymentMethod] = None
     date: datetime
@@ -145,8 +251,8 @@ class VariableExpenseUpdate(BaseModel):
 
 
 class Income(BaseModel):
-    model_config = ConfigDict(extra="ignore")
-    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    model_config = ConfigDict(extra="ignore", from_attributes=True)
+    id: int
     name: str
     amount: float
     date: datetime
@@ -170,8 +276,8 @@ class IncomeUpdate(BaseModel):
 
 
 class EmergencyReserve(BaseModel):
-    model_config = ConfigDict(extra="ignore")
-    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    model_config = ConfigDict(extra="ignore", from_attributes=True)
+    id: int
     amount: float
     date: datetime
     description: Optional[str] = None
@@ -184,8 +290,8 @@ class EmergencyReserveCreate(BaseModel):
 
 
 class SavingsGoal(BaseModel):
-    model_config = ConfigDict(extra="ignore")
-    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    model_config = ConfigDict(extra="ignore", from_attributes=True)
+    id: int
     name: str
     description: Optional[str] = None
     target_amount: float
@@ -210,9 +316,9 @@ class SavingsGoalUpdate(BaseModel):
     icon: Optional[str] = None
 
 class GoalContribution(BaseModel):
-    model_config = ConfigDict(extra="ignore")
-    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
-    goal_id: str
+    model_config = ConfigDict(extra="ignore", from_attributes=True)
+    id: int
+    goal_id: int
     amount: float
     description: Optional[str] = None
     date: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
@@ -234,561 +340,574 @@ class DashboardSummary(BaseModel):
     alerts: List[dict]
 
 
+
 # ============== ROUTES ==============
 
 # Categories
 @api_router.get("/categories", response_model=List[Category])
-async def get_categories():
-    categories = await db.categories.find({}, {"_id": 0}).to_list(1000)
-    for cat in categories:
-        if isinstance(cat.get('created_at'), str):
-            cat['created_at'] = datetime.fromisoformat(cat['created_at'])
-    return categories
+async def get_categories(db: AsyncSession = Depends(get_db)):
+    result = await db.execute(select(CategoryDB))
+    categories = result.scalars().all()
+    return [Category.model_validate(cat) for cat in categories]
 
 @api_router.post("/categories", response_model=Category)
-async def create_category(input: CategoryCreate):
-    category = Category(**input.model_dump())
-    doc = category.model_dump()
-    doc['created_at'] = doc['created_at'].isoformat()
-    await db.categories.insert_one(doc)
-    return category
+async def create_category(input: CategoryCreate, db: AsyncSession = Depends(get_db)):
+    db_category = CategoryDB(
+        name=input.name,
+        icon=input.icon,
+        created_at=datetime.now(timezone.utc)
+    )
+    db.add(db_category)
+    await db.commit()
+    await db.refresh(db_category)
+    return Category.model_validate(db_category)
 
 @api_router.delete("/categories/{category_id}")
-async def delete_category(category_id: str):
-    result = await db.categories.delete_one({"id": category_id})
-    if result.deleted_count == 0:
+async def delete_category(category_id: int, db: AsyncSession = Depends(get_db)):
+    result = await db.execute(select(CategoryDB).where(CategoryDB.id == category_id))
+    category = result.scalar_one_or_none()
+    if not category:
         raise HTTPException(status_code=404, detail="Category not found")
+    await db.delete(category)
+    await db.commit()
     return {"message": "Category deleted"}
 
 
 # Fixed Expense Templates
 @api_router.get("/fixed-expense-templates", response_model=List[FixedExpenseTemplate])
-async def get_fixed_expense_templates():
-    templates = await db.fixed_expense_templates.find({}, {"_id": 0}).to_list(1000)
-    for temp in templates:
-        if isinstance(temp.get('created_at'), str):
-            temp['created_at'] = datetime.fromisoformat(temp['created_at'])
-    return templates
+async def get_fixed_expense_templates(db: AsyncSession = Depends(get_db)):
+    result = await db.execute(select(FixedExpenseTemplateDB))
+    templates = result.scalars().all()
+    return [FixedExpenseTemplate.model_validate(t) for t in templates]
 
 @api_router.post("/fixed-expense-templates", response_model=FixedExpenseTemplate)
-async def create_fixed_expense_template(input: FixedExpenseTemplateCreate):
-    template = FixedExpenseTemplate(**input.model_dump())
-    doc = template.model_dump()
-    doc['created_at'] = doc['created_at'].isoformat()
-    await db.fixed_expense_templates.insert_one(doc)
-    return template
+async def create_fixed_expense_template(input: FixedExpenseTemplateCreate, db: AsyncSession = Depends(get_db)):
+    db_template = FixedExpenseTemplateDB(
+        name=input.name,
+        category_id=input.category_id,
+        amount=input.amount,
+        due_day=input.due_day,
+        is_active=True,
+        created_at=datetime.now(timezone.utc)
+    )
+    db.add(db_template)
+    await db.commit()
+    await db.refresh(db_template)
+    return FixedExpenseTemplate.model_validate(db_template)
 
 @api_router.put("/fixed-expense-templates/{template_id}", response_model=FixedExpenseTemplate)
-async def update_fixed_expense_template(template_id: str, input: FixedExpenseTemplateUpdate):
-    update_data = {k: v for k, v in input.model_dump().items() if v is not None}
-    if not update_data:
-        raise HTTPException(status_code=400, detail="No data to update")
-    
-    result = await db.fixed_expense_templates.update_one(
-        {"id": template_id},
-        {"$set": update_data}
-    )
-    if result.matched_count == 0:
+async def update_fixed_expense_template(template_id: int, input: FixedExpenseTemplateUpdate, db: AsyncSession = Depends(get_db)):
+    result = await db.execute(select(FixedExpenseTemplateDB).where(FixedExpenseTemplateDB.id == template_id))
+    template = result.scalar_one_or_none()
+    if not template:
         raise HTTPException(status_code=404, detail="Template not found")
     
-    template = await db.fixed_expense_templates.find_one({"id": template_id}, {"_id": 0})
-    if isinstance(template.get('created_at'), str):
-        template['created_at'] = datetime.fromisoformat(template['created_at'])
-    return template
+    update_data = input.model_dump(exclude_unset=True)
+    for key, value in update_data.items():
+        setattr(template, key, value)
+    
+    await db.commit()
+    await db.refresh(template)
+    return FixedExpenseTemplate.model_validate(template)
 
 @api_router.delete("/fixed-expense-templates/{template_id}")
-async def delete_fixed_expense_template(template_id: str):
-    result = await db.fixed_expense_templates.delete_one({"id": template_id})
-    if result.deleted_count == 0:
+async def delete_fixed_expense_template(template_id: int, db: AsyncSession = Depends(get_db)):
+    result = await db.execute(select(FixedExpenseTemplateDB).where(FixedExpenseTemplateDB.id == template_id))
+    template = result.scalar_one_or_none()
+    if not template:
         raise HTTPException(status_code=404, detail="Template not found")
+    await db.delete(template)
+    await db.commit()
     return {"message": "Template deleted"}
 
 
 # Fixed Expenses by Month
 @api_router.get("/fixed-expenses", response_model=List[FixedExpenseMonth])
-async def get_fixed_expenses(month: Optional[int] = None, year: Optional[int] = None):
-    query = {}
+async def get_fixed_expenses(month: Optional[int] = None, year: Optional[int] = None, db: AsyncSession = Depends(get_db)):
+    query = select(FixedExpenseMonthDB)
     if month is not None:
-        query['month'] = month
+        query = query.where(FixedExpenseMonthDB.month == month)
     if year is not None:
-        query['year'] = year
+        query = query.where(FixedExpenseMonthDB.year == year)
     
-    expenses = await db.fixed_expenses_months.find(query, {"_id": 0}).to_list(1000)
-    for exp in expenses:
-        if isinstance(exp.get('created_at'), str):
-            exp['created_at'] = datetime.fromisoformat(exp['created_at'])
-        if exp.get('paid_date') and isinstance(exp['paid_date'], str):
-            exp['paid_date'] = datetime.fromisoformat(exp['paid_date'])
-    return expenses
+    result = await db.execute(query)
+    expenses = result.scalars().all()
+    expenses = result.scalars().all()
+    return [FixedExpenseMonth.model_validate(e) for e in expenses]
 
 @api_router.post("/fixed-expenses", response_model=FixedExpenseMonth)
-async def create_fixed_expense(input: FixedExpenseMonthCreate):
-    expense = FixedExpenseMonth(**input.model_dump())
-    doc = expense.model_dump()
-    doc['created_at'] = doc['created_at'].isoformat()
-    if doc.get('paid_date'):
-        doc['paid_date'] = doc['paid_date'].isoformat()
-    await db.fixed_expenses_months.insert_one(doc)
-    return expense
+async def create_fixed_expense_month(input: FixedExpenseMonthCreate, db: AsyncSession = Depends(get_db)):
+    db_expense = FixedExpenseMonthDB(
+        fixed_expense_id=input.fixed_expense_id,
+        name=input.name,
+        category_id=input.category_id,
+        amount=input.amount,
+        due_day=input.due_day,
+        month=input.month,
+        year=input.year,
+        status=PaymentStatus.PENDING,
+        created_at=datetime.now(timezone.utc)
+    )
+    db.add(db_expense)
+    await db.commit()
+    await db.refresh(db_expense)
+    return FixedExpenseMonth.model_validate(db_expense)
 
 @api_router.put("/fixed-expenses/{expense_id}", response_model=FixedExpenseMonth)
-async def update_fixed_expense(expense_id: str, input: FixedExpenseMonthUpdate):
-    update_data = {k: v for k, v in input.model_dump().items() if v is not None}
-    if not update_data:
-        raise HTTPException(status_code=400, detail="No data to update")
-    
-    result = await db.fixed_expenses_months.update_one(
-        {"id": expense_id},
-        {"$set": update_data}
-    )
-    if result.matched_count == 0:
+async def update_fixed_expense_month(expense_id: int, input: FixedExpenseMonthUpdate, db: AsyncSession = Depends(get_db)):
+    result = await db.execute(select(FixedExpenseMonthDB).where(FixedExpenseMonthDB.id == expense_id))
+    expense = result.scalar_one_or_none()
+    if not expense:
         raise HTTPException(status_code=404, detail="Expense not found")
     
-    expense = await db.fixed_expenses_months.find_one({"id": expense_id}, {"_id": 0})
-    if isinstance(expense.get('created_at'), str):
-        expense['created_at'] = datetime.fromisoformat(expense['created_at'])
-    if expense.get('paid_date') and isinstance(expense['paid_date'], str):
-        expense['paid_date'] = datetime.fromisoformat(expense['paid_date'])
-    return expense
+    update_data = input.model_dump(exclude_unset=True)
+    for key, value in update_data.items():
+        setattr(expense, key, value)
+    
+    await db.commit()
+    await db.refresh(expense)
+    return FixedExpenseMonth.model_validate(expense)
 
-@api_router.post("/fixed-expenses/{expense_id}/mark-paid")
-async def mark_fixed_expense_paid(expense_id: str, input: MarkAsPaidRequest):
-    result = await db.fixed_expenses_months.update_one(
-        {"id": expense_id},
-        {"$set": {
-            "status": PaymentStatus.PAID.value,
-            "payment_method": input.payment_method.value,
-            "paid_date": datetime.now(timezone.utc).isoformat()
-        }}
-    )
-    if result.matched_count == 0:
+@api_router.post("/fixed-expenses/{expense_id}/mark-as-paid", response_model=FixedExpenseMonth)
+async def mark_fixed_expense_as_paid(expense_id: int, input: MarkAsPaidRequest, db: AsyncSession = Depends(get_db)):
+    result = await db.execute(select(FixedExpenseMonthDB).where(FixedExpenseMonthDB.id == expense_id))
+    expense = result.scalar_one_or_none()
+    if not expense:
         raise HTTPException(status_code=404, detail="Expense not found")
-    return {"message": "Expense marked as paid"}
+    
+    expense.status = PaymentStatus.PAID.value
+    expense.payment_method = input.payment_method.value
+    expense.paid_date = datetime.now(timezone.utc)
+    
+    await db.commit()
+    await db.refresh(expense)
+    return FixedExpenseMonth.model_validate(expense)
 
 @api_router.delete("/fixed-expenses/{expense_id}")
-async def delete_fixed_expense(expense_id: str):
-    result = await db.fixed_expenses_months.delete_one({"id": expense_id})
-    if result.deleted_count == 0:
+async def delete_fixed_expense_month(expense_id: int, db: AsyncSession = Depends(get_db)):
+    result = await db.execute(select(FixedExpenseMonthDB).where(FixedExpenseMonthDB.id == expense_id))
+    expense = result.scalar_one_or_none()
+    if not expense:
         raise HTTPException(status_code=404, detail="Expense not found")
+    await db.delete(expense)
+    await db.commit()
     return {"message": "Expense deleted"}
 
 
 # Variable Expenses
 @api_router.get("/variable-expenses", response_model=List[VariableExpense])
-async def get_variable_expenses(month: Optional[int] = None, year: Optional[int] = None):
-    query = {}
-    expenses = await db.variable_expenses.find(query, {"_id": 0}).to_list(1000)
+async def get_variable_expenses(month: Optional[int] = None, year: Optional[int] = None, db: AsyncSession = Depends(get_db)):
+    query = select(VariableExpenseDB)
+    
+    result = await db.execute(query)
+    all_expenses = result.scalars().all()
     
     # Filter by month/year if provided
     if month is not None or year is not None:
         filtered = []
-        for exp in expenses:
-            date = exp.get('date')
-            if isinstance(date, str):
-                date = datetime.fromisoformat(date)
-            if month is not None and date.month != month:
+        for exp in all_expenses:
+            if month is not None and exp.date.month != month:
                 continue
-            if year is not None and date.year != year:
+            if year is not None and exp.date.year != year:
                 continue
             filtered.append(exp)
-        expenses = filtered
+        all_expenses = filtered
     
-    for exp in expenses:
-        if isinstance(exp.get('created_at'), str):
-            exp['created_at'] = datetime.fromisoformat(exp['created_at'])
-        if isinstance(exp.get('date'), str):
-            exp['date'] = datetime.fromisoformat(exp['date'])
-        if exp.get('paid_date') and isinstance(exp['paid_date'], str):
-            exp['paid_date'] = datetime.fromisoformat(exp['paid_date'])
-    return expenses
+    return [VariableExpense.model_validate(e) for e in all_expenses]
 
-@api_router.post("/variable-expenses", response_model=VariableExpense)
-async def create_variable_expense(input: VariableExpenseCreate):
-    expense = VariableExpense(**input.model_dump())
-    doc = expense.model_dump()
-    doc['created_at'] = doc['created_at'].isoformat()
-    doc['date'] = doc['date'].isoformat()
-    if doc.get('paid_date'):
-        doc['paid_date'] = doc['paid_date'].isoformat()
-    await db.variable_expenses.insert_one(doc)
-    return expense
+@api_router.post("/variable-expenses", response_model=List[VariableExpense])
+async def create_variable_expense(input: VariableExpenseCreate, db: AsyncSession = Depends(get_db)):
+    created_expenses = []
+    
+    for i in range(input.installments):
+        # Adjust date for installments
+        expense_date = input.date
+        if i > 0:
+            month = input.date.month + i
+            year = input.date.year
+            while month > 12:
+                month -= 12
+                year += 1
+            expense_date = input.date.replace(month=month, year=year)
+        
+        db_expense = VariableExpenseDB(
+            name=f"{input.name} {i+1}/{input.installments}" if input.installments > 1 else input.name,
+            category_id=input.category_id,
+            amount=input.amount,
+            payment_method=input.payment_method.value if input.payment_method else None,
+            date=expense_date,
+            installments=input.installments,
+            current_installment=i + 1,
+            status=PaymentStatus.PENDING.value,
+            notes=input.notes,
+            created_at=datetime.now(timezone.utc)
+        )
+        db.add(db_expense)
+        created_expenses.append(db_expense)
+    
+    await db.commit()
+    for exp in created_expenses:
+        await db.refresh(exp)
+    
+    return [VariableExpense.model_validate(exp) for exp in created_expenses]
 
 @api_router.put("/variable-expenses/{expense_id}", response_model=VariableExpense)
-async def update_variable_expense(expense_id: str, input: VariableExpenseUpdate):
-    update_data = {k: v for k, v in input.model_dump().items() if v is not None}
-    if not update_data:
-        raise HTTPException(status_code=400, detail="No data to update")
-    
-    if 'date' in update_data:
-        update_data['date'] = update_data['date'].isoformat()
-    
-    result = await db.variable_expenses.update_one(
-        {"id": expense_id},
-        {"$set": update_data}
-    )
-    if result.matched_count == 0:
+async def update_variable_expense(expense_id: int, input: VariableExpenseUpdate, db: AsyncSession = Depends(get_db)):
+    result = await db.execute(select(VariableExpenseDB).where(VariableExpenseDB.id == expense_id))
+    expense = result.scalar_one_or_none()
+    if not expense:
         raise HTTPException(status_code=404, detail="Expense not found")
     
-    expense = await db.variable_expenses.find_one({"id": expense_id}, {"_id": 0})
-    if isinstance(expense.get('created_at'), str):
-        expense['created_at'] = datetime.fromisoformat(expense['created_at'])
-    if isinstance(expense.get('date'), str):
-        expense['date'] = datetime.fromisoformat(expense['date'])
-    if expense.get('paid_date') and isinstance(expense['paid_date'], str):
-        expense['paid_date'] = datetime.fromisoformat(expense['paid_date'])
-    return expense
+    update_data = input.model_dump(exclude_unset=True)
+    for key, value in update_data.items():
+        if key == "payment_method" and value:
+            setattr(expense, key, value.value)
+        else:
+            setattr(expense, key, value)
+    
+    await db.commit()
+    await db.refresh(expense)
+    return VariableExpense.model_validate(expense)
 
-@api_router.post("/variable-expenses/{expense_id}/mark-paid")
-async def mark_variable_expense_paid(expense_id: str, input: MarkAsPaidRequest):
-    result = await db.variable_expenses.update_one(
-        {"id": expense_id},
-        {"$set": {
-            "status": PaymentStatus.PAID.value,
-            "payment_method": input.payment_method.value,
-            "paid_date": datetime.now(timezone.utc).isoformat()
-        }}
-    )
-    if result.matched_count == 0:
+@api_router.post("/variable-expenses/{expense_id}/mark-as-paid", response_model=VariableExpense)
+async def mark_variable_expense_as_paid(expense_id: int, input: MarkAsPaidRequest, db: AsyncSession = Depends(get_db)):
+    result = await db.execute(select(VariableExpenseDB).where(VariableExpenseDB.id == expense_id))
+    expense = result.scalar_one_or_none()
+    if not expense:
         raise HTTPException(status_code=404, detail="Expense not found")
-    return {"message": "Expense marked as paid"}
+    
+    expense.status = PaymentStatus.PAID.value
+    expense.payment_method = input.payment_method.value
+    expense.paid_date = datetime.now(timezone.utc)
+    
+    await db.commit()
+    await db.refresh(expense)
+    return VariableExpense.model_validate(expense)
 
 @api_router.delete("/variable-expenses/{expense_id}")
-async def delete_variable_expense(expense_id: str):
-    result = await db.variable_expenses.delete_one({"id": expense_id})
-    if result.deleted_count == 0:
+async def delete_variable_expense(expense_id: int, db: AsyncSession = Depends(get_db)):
+    result = await db.execute(select(VariableExpenseDB).where(VariableExpenseDB.id == expense_id))
+    expense = result.scalar_one_or_none()
+    if not expense:
         raise HTTPException(status_code=404, detail="Expense not found")
+    await db.delete(expense)
+    await db.commit()
     return {"message": "Expense deleted"}
 
 
 # Incomes
 @api_router.get("/incomes", response_model=List[Income])
-async def get_incomes(month: Optional[int] = None, year: Optional[int] = None):
-    query = {}
-    incomes = await db.incomes.find(query, {"_id": 0}).to_list(1000)
+async def get_incomes(month: Optional[int] = None, year: Optional[int] = None, db: AsyncSession = Depends(get_db)):
+    query = select(IncomeDB)
+    
+    result = await db.execute(query)
+    all_incomes = result.scalars().all()
     
     # Filter by month/year if provided
     if month is not None or year is not None:
         filtered = []
-        for inc in incomes:
-            date = inc.get('date')
-            if isinstance(date, str):
-                date = datetime.fromisoformat(date)
-            if month is not None and date.month != month:
+        for inc in all_incomes:
+            if month is not None and inc.date.month != month:
                 continue
-            if year is not None and date.year != year:
+            if year is not None and inc.date.year != year:
                 continue
             filtered.append(inc)
-        incomes = filtered
+        all_incomes = filtered
     
-    for inc in incomes:
-        if isinstance(inc.get('created_at'), str):
-            inc['created_at'] = datetime.fromisoformat(inc['created_at'])
-        if isinstance(inc.get('date'), str):
-            inc['date'] = datetime.fromisoformat(inc['date'])
-    return incomes
+    return [Income.model_validate(i) for i in all_incomes]
 
 @api_router.post("/incomes", response_model=Income)
-async def create_income(input: IncomeCreate):
-    income = Income(**input.model_dump())
-    doc = income.model_dump()
-    doc['created_at'] = doc['created_at'].isoformat()
-    doc['date'] = doc['date'].isoformat()
-    await db.incomes.insert_one(doc)
-    return income
+async def create_income(input: IncomeCreate, db: AsyncSession = Depends(get_db)):
+    db_income = IncomeDB(
+        name=input.name,
+        amount=input.amount,
+        date=input.date,
+        is_recurring=input.is_recurring,
+        notes=input.notes,
+        created_at=datetime.now(timezone.utc)
+    )
+    db.add(db_income)
+    await db.commit()
+    await db.refresh(db_income)
+    return Income.model_validate(db_income)
 
 @api_router.put("/incomes/{income_id}", response_model=Income)
-async def update_income(income_id: str, input: IncomeUpdate):
-    update_data = {k: v for k, v in input.model_dump().items() if v is not None}
-    if not update_data:
-        raise HTTPException(status_code=400, detail="No data to update")
-    
-    if 'date' in update_data:
-        update_data['date'] = update_data['date'].isoformat()
-    
-    result = await db.incomes.update_one(
-        {"id": income_id},
-        {"$set": update_data}
-    )
-    if result.matched_count == 0:
+async def update_income(income_id: int, input: IncomeUpdate, db: AsyncSession = Depends(get_db)):
+    result = await db.execute(select(IncomeDB).where(IncomeDB.id == income_id))
+    income = result.scalar_one_or_none()
+    if not income:
         raise HTTPException(status_code=404, detail="Income not found")
     
-    income = await db.incomes.find_one({"id": income_id}, {"_id": 0})
-    if isinstance(income.get('created_at'), str):
-        income['created_at'] = datetime.fromisoformat(income['created_at'])
-    if isinstance(income.get('date'), str):
-        income['date'] = datetime.fromisoformat(income['date'])
-    return income
+    update_data = input.model_dump(exclude_unset=True)
+    for key, value in update_data.items():
+        setattr(income, key, value)
+    
+    await db.commit()
+    await db.refresh(income)
+    return Income.model_validate(income)
 
 @api_router.delete("/incomes/{income_id}")
-async def delete_income(income_id: str):
-    result = await db.incomes.delete_one({"id": income_id})
-    if result.deleted_count == 0:
+async def delete_income(income_id: int, db: AsyncSession = Depends(get_db)):
+    result = await db.execute(select(IncomeDB).where(IncomeDB.id == income_id))
+    income = result.scalar_one_or_none()
+    if not income:
         raise HTTPException(status_code=404, detail="Income not found")
+    await db.delete(income)
+    await db.commit()
     return {"message": "Income deleted"}
+
 
 
 # Emergency Reserve
 @api_router.get("/emergency-reserve", response_model=List[EmergencyReserve])
-async def get_emergency_reserve():
-    reserves = await db.emergency_reserve.find({}, {"_id": 0}).sort("date", -1).to_list(1000)
-    for res in reserves:
-        if isinstance(res.get('created_at'), str):
-            res['created_at'] = datetime.fromisoformat(res['created_at'])
-        if isinstance(res.get('date'), str):
-            res['date'] = datetime.fromisoformat(res['date'])
-    return reserves
+async def get_emergency_reserve(db: AsyncSession = Depends(get_db)):
+    result = await db.execute(select(EmergencyReserveDB).order_by(EmergencyReserveDB.date.desc()))
+    reserves = result.scalars().all()
+    return [EmergencyReserve.model_validate(r) for r in reserves]
 
-@api_router.get("/emergency-reserve/balance")
-async def get_emergency_reserve_balance():
-    reserves = await db.emergency_reserve.find({}, {"_id": 0}).to_list(10000)
-    balance = sum(res.get('amount', 0) for res in reserves)
-    return {"balance": balance}
+@api_router.get("/emergency-reserve/total")
+async def get_emergency_reserve_total(db: AsyncSession = Depends(get_db)):
+    result = await db.execute(select(EmergencyReserveDB))
+    reserves = result.scalars().all()
+    total = sum(r.amount for r in reserves)
+    return {"total": total}
 
 @api_router.post("/emergency-reserve", response_model=EmergencyReserve)
-async def create_emergency_reserve(input: EmergencyReserveCreate):
-    reserve = EmergencyReserve(**input.model_dump())
-    doc = reserve.model_dump()
-    doc['created_at'] = doc['created_at'].isoformat()
-    doc['date'] = doc['date'].isoformat()
-    await db.emergency_reserve.insert_one(doc)
-    return reserve
+async def create_emergency_reserve(input: EmergencyReserveCreate, db: AsyncSession = Depends(get_db)):
+    db_reserve = EmergencyReserveDB(
+        amount=input.amount,
+        date=input.date,
+        description=input.description,
+        created_at=datetime.now(timezone.utc)
+    )
+    db.add(db_reserve)
+    await db.commit()
+    await db.refresh(db_reserve)
+    return EmergencyReserve.model_validate(db_reserve)
 
 @api_router.delete("/emergency-reserve/{reserve_id}")
-async def delete_emergency_reserve(reserve_id: str):
-    result = await db.emergency_reserve.delete_one({"id": reserve_id})
-    if result.deleted_count == 0:
-        raise HTTPException(status_code=404, detail="Reserve entry not found")
-    return {"message": "Reserve entry deleted"}
+async def delete_emergency_reserve(reserve_id: int, db: AsyncSession = Depends(get_db)):
+    result = await db.execute(select(EmergencyReserveDB).where(EmergencyReserveDB.id == reserve_id))
+    reserve = result.scalar_one_or_none()
+    if not reserve:
+        raise HTTPException(status_code=404, detail="Reserve not found")
+    await db.delete(reserve)
+    await db.commit()
+    return {"message": "Reserve deleted"}
 
 
 # Savings Goals
 @api_router.get("/savings-goals", response_model=List[SavingsGoal])
-async def get_savings_goals():
-    goals = await db.savings_goals.find({}, {"_id": 0}).to_list(1000)
-    for goal in goals:
-        if isinstance(goal.get('created_at'), str):
-            goal['created_at'] = datetime.fromisoformat(goal['created_at'])
-        if goal.get('deadline') and isinstance(goal['deadline'], str):
-            goal['deadline'] = datetime.fromisoformat(goal['deadline'])
-    return goals
+async def get_savings_goals(db: AsyncSession = Depends(get_db)):
+    result = await db.execute(select(SavingsGoalDB))
+    goals = result.scalars().all()
+    return [SavingsGoal.model_validate(g) for g in goals]
 
 @api_router.post("/savings-goals", response_model=SavingsGoal)
-async def create_savings_goal(input: SavingsGoalCreate):
-    goal = SavingsGoal(**input.model_dump())
-    doc = goal.model_dump()
-    doc['created_at'] = doc['created_at'].isoformat()
-    if doc.get('deadline'):
-        doc['deadline'] = doc['deadline'].isoformat()
-    await db.savings_goals.insert_one(doc)
-    return goal
+async def create_savings_goal(input: SavingsGoalCreate, db: AsyncSession = Depends(get_db)):
+    db_goal = SavingsGoalDB(
+        name=input.name,
+        description=input.description,
+        target_amount=input.target_amount,
+        current_amount=input.current_amount,
+        deadline=input.deadline,
+        icon=input.icon,
+        is_completed=input.is_completed,
+        created_at=datetime.now(timezone.utc)
+    )
+    db.add(db_goal)
+    await db.commit()
+    await db.refresh(db_goal)
+    return SavingsGoal.model_validate(db_goal)
 
 @api_router.put("/savings-goals/{goal_id}", response_model=SavingsGoal)
-async def update_savings_goal(goal_id: str, input: SavingsGoalUpdate):
-    update_data = {k: v for k, v in input.model_dump().items() if v is not None}
-    if not update_data:
-        raise HTTPException(status_code=400, detail="No data to update")
-    
-    if 'deadline' in update_data and update_data['deadline']:
-        update_data['deadline'] = update_data['deadline'].isoformat()
-    
-    result = await db.savings_goals.update_one(
-        {"id": goal_id},
-        {"$set": update_data}
-    )
-    if result.matched_count == 0:
+async def update_savings_goal(goal_id: int, input: SavingsGoalUpdate, db: AsyncSession = Depends(get_db)):
+    result = await db.execute(select(SavingsGoalDB).where(SavingsGoalDB.id == goal_id))
+    goal = result.scalar_one_or_none()
+    if not goal:
         raise HTTPException(status_code=404, detail="Goal not found")
     
-    goal = await db.savings_goals.find_one({"id": goal_id}, {"_id": 0})
-    if isinstance(goal.get('created_at'), str):
-        goal['created_at'] = datetime.fromisoformat(goal['created_at'])
-    if goal.get('deadline') and isinstance(goal['deadline'], str):
-        goal['deadline'] = datetime.fromisoformat(goal['deadline'])
-    return goal
+    update_data = input.model_dump(exclude_unset=True)
+    for key, value in update_data.items():
+        setattr(goal, key, value)
+    
+    await db.commit()
+    await db.refresh(goal)
+    return SavingsGoal.model_validate(goal)
 
 @api_router.delete("/savings-goals/{goal_id}")
-async def delete_savings_goal(goal_id: str):
-    # Delete goal and all contributions
-    await db.goal_contributions.delete_many({"goal_id": goal_id})
-    result = await db.savings_goals.delete_one({"id": goal_id})
-    if result.deleted_count == 0:
+async def delete_savings_goal(goal_id: int, db: AsyncSession = Depends(get_db)):
+    # Delete all contributions first
+    await db.execute(delete(GoalContributionDB).where(GoalContributionDB.goal_id == goal_id))
+    
+    # Delete the goal
+    result = await db.execute(select(SavingsGoalDB).where(SavingsGoalDB.id == goal_id))
+    goal = result.scalar_one_or_none()
+    if not goal:
         raise HTTPException(status_code=404, detail="Goal not found")
+    await db.delete(goal)
+    await db.commit()
     return {"message": "Goal deleted"}
 
 
 # Goal Contributions
 @api_router.get("/savings-goals/{goal_id}/contributions", response_model=List[GoalContribution])
-async def get_goal_contributions(goal_id: str):
-    contributions = await db.goal_contributions.find({"goal_id": goal_id}, {"_id": 0}).sort("date", -1).to_list(1000)
-    for contrib in contributions:
-        if isinstance(contrib.get('created_at'), str):
-            contrib['created_at'] = datetime.fromisoformat(contrib['created_at'])
-        if isinstance(contrib.get('date'), str):
-            contrib['date'] = datetime.fromisoformat(contrib['date'])
-    return contributions
+async def get_goal_contributions(goal_id: int, db: AsyncSession = Depends(get_db)):
+    result = await db.execute(
+        select(GoalContributionDB)
+        .where(GoalContributionDB.goal_id == goal_id)
+        .order_by(GoalContributionDB.date.desc())
+    )
+    contributions = result.scalars().all()
+    return [GoalContribution.model_validate(c) for c in contributions]
 
 @api_router.post("/savings-goals/{goal_id}/contributions", response_model=GoalContribution)
-async def create_goal_contribution(goal_id: str, input: GoalContributionCreate):
-    contribution = GoalContribution(goal_id=goal_id, **input.model_dump())
-    doc = contribution.model_dump()
-    doc['created_at'] = doc['created_at'].isoformat()
-    doc['date'] = doc['date'].isoformat()
-    await db.goal_contributions.insert_one(doc)
-    
-    # Update goal current_amount
-    await db.savings_goals.update_one(
-        {"id": goal_id},
-        {"$inc": {"current_amount": input.amount}}
+async def create_goal_contribution(goal_id: int, input: GoalContributionCreate, db: AsyncSession = Depends(get_db)):
+    db_contribution = GoalContributionDB(
+        goal_id=goal_id,
+        amount=input.amount,
+        description=input.description,
+        date=input.date,
+        created_at=datetime.now(timezone.utc)
     )
+    db.add(db_contribution)
+    await db.commit()
+    await db.refresh(db_contribution)
     
-    # Check if goal is completed
-    goal = await db.savings_goals.find_one({"id": goal_id}, {"_id": 0})
-    if goal and goal.get('current_amount', 0) >= goal.get('target_amount', 0):
-        await db.savings_goals.update_one(
-            {"id": goal_id},
-            {"$set": {"is_completed": True}}
-        )
+    # Update goal current amount
+    result = await db.execute(select(SavingsGoalDB).where(SavingsGoalDB.id == goal_id))
+    goal = result.scalar_one_or_none()
+    if goal:
+        goal.current_amount += input.amount
+        if goal.current_amount >= goal.target_amount:
+            goal.is_completed = True
+    await db.commit()
     
-    return contribution
+    return GoalContribution.model_validate(db_contribution)
 
 @api_router.delete("/savings-goals/{goal_id}/contributions/{contribution_id}")
-async def delete_goal_contribution(goal_id: str, contribution_id: str):
-    contribution = await db.goal_contributions.find_one({"id": contribution_id, "goal_id": goal_id}, {"_id": 0})
+async def delete_goal_contribution(goal_id: int, contribution_id: int, db: AsyncSession = Depends(get_db)):
+    result = await db.execute(
+        select(GoalContributionDB)
+        .where(GoalContributionDB.id == contribution_id, GoalContributionDB.goal_id == goal_id)
+    )
+    contribution = result.scalar_one_or_none()
     if not contribution:
         raise HTTPException(status_code=404, detail="Contribution not found")
     
     # Update goal current_amount
-    await db.savings_goals.update_one(
-        {"id": goal_id},
-        {"$inc": {"current_amount": -contribution['amount']}}
-    )
+    result = await db.execute(select(SavingsGoalDB).where(SavingsGoalDB.id == goal_id))
+    goal = result.scalar_one_or_none()
+    if goal:
+        goal.current_amount -= contribution.amount
+        goal.is_completed = False # Recalculate completion status
     
-    # Delete contribution
-    await db.goal_contributions.delete_one({"id": contribution_id})
-    
+    await db.delete(contribution)
+    await db.commit()
     return {"message": "Contribution deleted"}
 
 
 # Dashboard
 @api_router.get("/dashboard", response_model=DashboardSummary)
-async def get_dashboard(month: int, year: int):
-    # Get incomes
-    all_incomes = await db.incomes.find({}, {"_id": 0}).to_list(1000)
-    incomes = []
-    for inc in all_incomes:
-        date = inc.get('date')
-        if isinstance(date, str):
-            date = datetime.fromisoformat(date)
-        if date.month == month and date.year == year:
-            incomes.append(inc)
+async def get_dashboard(month: int, year: int, db: AsyncSession = Depends(get_db)):
+    # Get all incomes
+    result = await db.execute(select(IncomeDB))
+    all_incomes = result.scalars().all()
     
-    total_income = sum(inc.get('amount', 0) for inc in incomes)
+    total_income = 0.0
+    for income in all_incomes:
+        if income.date.month == month and income.date.year == year:
+            total_income += income.amount
+        elif income.is_recurring:
+            total_income += income.amount
     
     # Get fixed expenses for the month
-    fixed_expenses = await db.fixed_expenses_months.find(
-        {"month": month, "year": year},
-        {"_id": 0}
-    ).to_list(1000)
-    
-    # Get variable expenses
-    all_variable = await db.variable_expenses.find({}, {"_id": 0}).to_list(1000)
-    variable_expenses = []
-    for exp in all_variable:
-        date = exp.get('date')
-        if isinstance(date, str):
-            date = datetime.fromisoformat(date)
-        if date.month == month and date.year == year:
-            variable_expenses.append(exp)
-    
-    # Calculate total expenses (only PAID ones affect the balance)
-    total_fixed_paid = sum(
-        exp.get('amount', 0) 
-        for exp in fixed_expenses 
-        if exp.get('status') == PaymentStatus.PAID.value
+    result = await db.execute(
+        select(FixedExpenseMonthDB)
+        .where(FixedExpenseMonthDB.month == month, FixedExpenseMonthDB.year == year)
     )
-    total_variable_paid = sum(
-        exp.get('amount', 0) 
-        for exp in variable_expenses 
-        if exp.get('status') == PaymentStatus.PAID.value
-    )
-    total_expenses = total_fixed_paid + total_variable_paid
+    fixed_expenses = result.scalars().all()
     
+    # Get variable expenses for the month
+    result = await db.execute(select(VariableExpenseDB))
+    all_variable = result.scalars().all()
+    variable_expenses = [e for e in all_variable if e.date.month == month and e.date.year == year]
+    
+    total_expenses = sum(e.amount for e in fixed_expenses) + sum(e.amount for e in variable_expenses)
     balance = total_income - total_expenses
     
-    # Get emergency reserve balance
-    reserves = await db.emergency_reserve.find({}, {"_id": 0}).to_list(10000)
-    emergency_reserve = sum(res.get('amount', 0) for res in reserves)
-    
+    # Emergency reserve
+    result = await db.execute(select(EmergencyReserveDB))
+    reserves = result.scalars().all()
+    emergency_reserve = sum(r.amount for r in reserves)
     balance_with_reserve = balance + emergency_reserve
     
-    # Get pending expenses
-    pending_fixed = [
-        {
-            "id": exp['id'],
-            "name": exp['name'],
-            "amount": exp['amount'],
-            "due_day": exp['due_day'],
-            "type": "fixed",
-            "category_id": exp['category_id']
-        }
-        for exp in fixed_expenses
-        if exp.get('status') == PaymentStatus.PENDING.value
-    ]
-    
-    pending_variable = [
-        {
-            "id": exp['id'],
-            "name": exp['name'],
-            "amount": exp['amount'],
-            "date": exp['date'],
-            "type": "variable",
-            "category_id": exp['category_id']
-        }
-        for exp in variable_expenses
-        if exp.get('status') == PaymentStatus.PENDING.value
-    ]
-    
-    pending_expenses = pending_fixed + pending_variable
-    
-    # Get categories for grouping
-    categories = await db.categories.find({}, {"_id": 0}).to_list(1000)
-    category_map = {cat['id']: cat for cat in categories}
-    
-    # Calculate expenses by category
-    expenses_by_cat = {}
+    # Pending expenses
+    pending_expenses = []
     for exp in fixed_expenses:
-        if exp.get('status') == PaymentStatus.PAID.value:
-            cat_id = exp.get('category_id')
-            expenses_by_cat[cat_id] = expenses_by_cat.get(cat_id, 0) + exp.get('amount', 0)
+        if exp.status == "pending":
+            pending_expenses.append({
+                "id": exp.id,
+                "name": exp.name,
+                "amount": exp.amount,
+                "due_day": exp.due_day,
+                "type": "fixed"
+            })
     
     for exp in variable_expenses:
-        if exp.get('status') == PaymentStatus.PAID.value:
-            cat_id = exp.get('category_id')
-            expenses_by_cat[cat_id] = expenses_by_cat.get(cat_id, 0) + exp.get('amount', 0)
-    
-    expenses_by_category = [
-        {
-            "category_id": cat_id,
-            "category_name": category_map.get(cat_id, {}).get('name', 'Unknown'),
-            "category_icon": category_map.get(cat_id, {}).get('icon', '💰'),
-            "amount": amount,
-            "percentage": (amount / total_expenses * 100) if total_expenses > 0 else 0
-        }
-        for cat_id, amount in expenses_by_cat.items()
-    ]
-    expenses_by_category.sort(key=lambda x: x['amount'], reverse=True)
-    
-    # Generate alerts for due dates
-    alerts = []
-    today = datetime.now(timezone.utc)
-    for exp in pending_fixed:
-        due_date = datetime(year, month, exp['due_day'], tzinfo=timezone.utc)
-        days_until = (due_date - today).days
-        if 0 <= days_until <= 3:
-            alerts.append({
-                "type": "warning",
-                "message": f"{exp['name']} vence em {days_until} dia(s)",
-                "expense_id": exp['id']
+        if exp.status == "pending":
+            pending_expenses.append({
+                "id": exp.id,
+                "name": exp.name,
+                "amount": exp.amount,
+                "date": exp.date.isoformat(),
+                "type": "variable"
             })
+    
+    # Expenses by category
+    result = await db.execute(select(CategoryDB))
+    categories = result.scalars().all()
+    category_map = {cat.id: {"name": cat.name, "icon": cat.icon} for cat in categories}
+    
+    expenses_by_category = {}
+    for exp in fixed_expenses:
+        cat_id = exp.category_id
+        if cat_id not in expenses_by_category:
+            expenses_by_category[cat_id] = 0
+        expenses_by_category[cat_id] += exp.amount
+    
+    for exp in variable_expenses:
+        cat_id = exp.category_id
+        if cat_id not in expenses_by_category:
+            expenses_by_category[cat_id] = 0
+        expenses_by_category[cat_id] += exp.amount
+    
+    # Calculate percentages
+    expenses_by_category_list = []
+    for cat_id, amount in expenses_by_category.items():
+        cat_info = category_map.get(cat_id, {"name": "Outros", "icon": "📦"})
+        percentage = (amount / total_expenses * 100) if total_expenses > 0 else 0
+        expenses_by_category_list.append({
+            "category_id": cat_id,
+            "category_name": cat_info["name"],
+            "category_icon": cat_info["icon"],
+            "amount": amount,
+            "percentage": percentage
+        })
+    
+    # Alerts
+    alerts = []
+    if balance < 0:
+        alerts.append({
+            "type": "warning",
+            "message": f"Saldo negativo de R$ {abs(balance):.2f}"
+        })
+    
+    if len(pending_expenses) > 0:
+        alerts.append({
+            "type": "info",
+            "message": f"{len(pending_expenses)} despesa(s) pendente(s)"
+        })
     
     return DashboardSummary(
         total_income=total_income,
@@ -797,29 +916,31 @@ async def get_dashboard(month: int, year: int):
         emergency_reserve=emergency_reserve,
         balance_with_reserve=balance_with_reserve,
         pending_expenses=pending_expenses,
-        expenses_by_category=expenses_by_category,
+        expenses_by_category=expenses_by_category_list,
         alerts=alerts
     )
 
 
-# Include the router in the main app
+# Include router in app
 app.include_router(api_router)
 
+# CORS
 app.add_middleware(
     CORSMiddleware,
+    allow_origins=os.environ.get("CORS_ORIGINS", "*").split(","),
     allow_credentials=True,
-    allow_origins=os.environ.get('CORS_ORIGINS', '*').split(','),
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
-# Configure logging
-logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
-)
-logger = logging.getLogger(__name__)
 
-@app.on_event("shutdown")
-async def shutdown_db_client():
-    client.close()
+# Startup event to create tables
+@app.on_event("startup")
+async def startup():
+    async with engine.begin() as conn:
+        await conn.run_sync(Base.metadata.create_all)
+
+
+if __name__ == "__main__":
+    import uvicorn
+    uvicorn.run(app, host="0.0.0.0", port=8000)

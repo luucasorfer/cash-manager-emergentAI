@@ -1,48 +1,58 @@
-import { useState } from 'react';
-import { Link, useLocation } from 'react-router-dom';
-import { 
-  Home, 
-  Tag, 
-  CreditCard, 
-  ShoppingCart, 
-  DollarSign, 
-  Shield, 
+import { useState } from "react";
+import { Link, useLocation } from "react-router-dom";
+import {
+  Home,
+  Tag,
+  CreditCard,
+  ShoppingCart,
+  DollarSign,
+  Shield,
   Target,
   Menu,
-  X
-} from 'lucide-react';
+  X,
+} from "lucide-react";
 
 const Layout = ({ children }) => {
   const location = useLocation();
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
   const menuItems = [
-    { path: '/', icon: Home, label: 'Dashboard' },
-    { path: '/categories', icon: Tag, label: 'Categorias' },
-    { path: '/fixed-expenses', icon: CreditCard, label: 'Gastos Fixos' },
-    { path: '/variable-expenses', icon: ShoppingCart, label: 'Gastos Variáveis' },
-    { path: '/incomes', icon: DollarSign, label: 'Receitas' },
-    { path: '/emergency-reserve', icon: Shield, label: 'Reserva de Emergência' },
-    { path: '/savings-goals', icon: Target, label: 'Metas' },
+    { path: "/", icon: Home, label: "Dashboard" },
+    { path: "/categories", icon: Tag, label: "Categorias" },
+    { path: "/fixed-expenses", icon: CreditCard, label: "Gastos Fixos" },
+    {
+      path: "/variable-expenses",
+      icon: ShoppingCart,
+      label: "Gastos Variáveis",
+    },
+    { path: "/incomes", icon: DollarSign, label: "Receitas" },
+    {
+      path: "/emergency-reserve",
+      icon: Shield,
+      label: "Reserva de Emergência",
+    },
+    { path: "/savings-goals", icon: Target, label: "Metas" },
   ];
 
   return (
     <div className="flex h-screen overflow-hidden bg-gradient-to-br from-slate-50 to-slate-100">
       {/* Mobile sidebar backdrop */}
       {sidebarOpen && (
-        <div 
+        <div
           className="fixed inset-0 bg-black/50 z-40 lg:hidden"
           onClick={() => setSidebarOpen(false)}
         />
       )}
 
       {/* Sidebar */}
-      <aside 
+      <aside
         className={`
           fixed lg:static inset-y-0 left-0 z-50
           w-72 bg-white shadow-xl
           transform transition-transform duration-300 ease-in-out
-          ${sidebarOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}
+          ${
+            sidebarOpen ? "translate-x-0" : "-translate-x-full lg:translate-x-0"
+          }
         `}
       >
         <div className="h-full flex flex-col">
@@ -50,8 +60,12 @@ const Layout = ({ children }) => {
           <div className="p-6 border-b border-slate-200">
             <div className="flex items-center justify-between">
               <div>
-                <h1 className="text-2xl font-bold text-slate-800">MoneyWatch</h1>
-                <p className="text-sm text-slate-500 mt-1">Controle Financeiro</p>
+                <h1 className="text-2xl text-center font-bold text-slate-800">
+                  Cash Monitor
+                </h1>
+                <p className="text-sm text-center text-slate-500 mt-1">
+                  Seu controle financeiro simplificado!
+                </p>
               </div>
               <button
                 onClick={() => setSidebarOpen(false)}
@@ -77,12 +91,15 @@ const Layout = ({ children }) => {
                       className={`
                         flex items-center gap-3 px-4 py-3 rounded-lg
                         transition-all duration-200
-                        ${isActive 
-                          ? 'bg-emerald-500 text-white shadow-lg shadow-emerald-500/30' 
-                          : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900'
+                        ${
+                          isActive
+                            ? "bg-emerald-500 text-white shadow-lg shadow-emerald-500/30"
+                            : "text-slate-600 hover:bg-slate-100 hover:text-slate-900"
                         }
                       `}
-                      data-testid={`nav-${item.label.toLowerCase().replace(/\s+/g, '-')}`}
+                      data-testid={`nav-${item.label
+                        .toLowerCase()
+                        .replace(/\s+/g, "-")}`}
                     >
                       <Icon size={20} />
                       <span className="font-medium">{item.label}</span>
@@ -96,7 +113,7 @@ const Layout = ({ children }) => {
           {/* Footer */}
           <div className="p-4 border-t border-slate-200">
             <p className="text-xs text-slate-500 text-center">
-              © 2025 MoneyWatch
+              © 2025 Cash Monitor
             </p>
           </div>
         </div>
@@ -116,16 +133,15 @@ const Layout = ({ children }) => {
             </button>
             <div className="flex-1 lg:flex-none">
               <h2 className="text-xl font-semibold text-slate-800 text-center lg:text-left">
-                {menuItems.find(item => item.path === location.pathname)?.label || 'Dashboard'}
+                {menuItems.find((item) => item.path === location.pathname)
+                  ?.label || "Dashboard"}
               </h2>
             </div>
           </div>
         </header>
 
         {/* Content */}
-        <main className="flex-1 overflow-auto p-6">
-          {children}
-        </main>
+        <main className="flex-1 overflow-auto p-6">{children}</main>
       </div>
     </div>
   );
