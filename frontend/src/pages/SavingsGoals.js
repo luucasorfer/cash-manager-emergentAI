@@ -1,14 +1,20 @@
-import { useState, useEffect } from 'react';
-import { apiClient } from '../App';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Textarea } from '@/components/ui/textarea';
-import { Progress } from '@/components/ui/progress';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
-import { Plus, Trash2, TrendingUp, Target } from 'lucide-react';
-import { toast } from 'sonner';
+import { useState, useEffect } from "react";
+import { apiClient } from "../App";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import { Progress } from "@/components/ui/progress";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from "@/components/ui/dialog";
+import { Plus, Trash2, TrendingUp, Target } from "lucide-react";
+import { toast } from "sonner";
 
 const SavingsGoals = () => {
   const [goals, setGoals] = useState([]);
@@ -17,27 +23,27 @@ const SavingsGoals = () => {
   const [contributionModalOpen, setContributionModalOpen] = useState(false);
   const [selectedGoal, setSelectedGoal] = useState(null);
   const [goalFormData, setGoalFormData] = useState({
-    name: '',
-    description: '',
-    target_amount: '',
-    deadline: '',
-    icon: '🎯'
+    name: "",
+    description: "",
+    target_amount: "",
+    deadline: "",
+    icon: "🎯",
   });
   const [contributionFormData, setContributionFormData] = useState({
-    amount: '',
-    description: ''
+    amount: "",
+    description: "",
   });
 
-  const commonIcons = ['🎯', '🏠', '🚗', '✈️', '📚', '💻', '🎉', '💎'];
+  const commonIcons = ["🎯", "🏠", "🚗", "✈️", "📚", "💻", "🎉", "💎"];
 
   const fetchGoals = async () => {
     try {
       setLoading(true);
-      const response = await apiClient.get('/savings-goals');
+      const response = await apiClient.get("/savings_goals");
       setGoals(response.data);
     } catch (error) {
-      console.error('Error fetching goals:', error);
-      toast.error('Erro ao carregar metas');
+      console.error("Error fetching goals:", error);
+      toast.error("Erro ao carregar metas");
     } finally {
       setLoading(false);
     }
@@ -49,68 +55,73 @@ const SavingsGoals = () => {
 
   const handleCreateGoal = async () => {
     if (!goalFormData.name || !goalFormData.target_amount) {
-      toast.error('Preencha os campos obrigatórios');
+      toast.error("Preencha os campos obrigatórios");
       return;
     }
 
     try {
-      await apiClient.post('/savings-goals', {
+      await apiClient.post("/savings_goals", {
         ...goalFormData,
         target_amount: parseFloat(goalFormData.target_amount),
-        deadline: goalFormData.deadline ? new Date(goalFormData.deadline).toISOString() : null
+        deadline: goalFormData.deadline
+          ? new Date(goalFormData.deadline).toISOString()
+          : null,
       });
-      toast.success('Meta criada com sucesso!');
+      toast.success("Meta criada com sucesso!");
       setGoalModalOpen(false);
       setGoalFormData({
-        name: '',
-        description: '',
-        target_amount: '',
-        deadline: '',
-        icon: '🎯'
+        name: "",
+        description: "",
+        target_amount: "",
+        deadline: "",
+        icon: "🎯",
       });
       fetchGoals();
     } catch (error) {
-      console.error('Error creating goal:', error);
-      toast.error('Erro ao criar meta');
+      console.error("Error creating goal:", error);
+      toast.error("Erro ao criar meta");
     }
   };
 
   const handleDeleteGoal = async (id) => {
-    if (!window.confirm('Tem certeza que deseja excluir esta meta?')) return;
+    if (!window.confirm("Tem certeza que deseja excluir esta meta?")) return;
 
     try {
-      await apiClient.delete(`/savings-goals/${id}`);
-      toast.success('Meta excluída!');
+      await apiClient.delete(`/savings_goals/${id}`);
+      toast.success("Meta excluída!");
       fetchGoals();
     } catch (error) {
-      console.error('Error deleting goal:', error);
-      toast.error('Erro ao excluir meta');
+      console.error("Error deleting goal:", error);
+      toast.error("Erro ao excluir meta");
     }
   };
 
   const handleCreateContribution = async () => {
     if (!contributionFormData.amount) {
-      toast.error('Informe o valor');
+      toast.error("Informe o valor");
       return;
     }
 
     try {
-      await apiClient.post(`/savings-goals/${selectedGoal.id}/contributions`, {
+      await apiClient.post(`/savings_goals/${selectedGoal.id}/contributions`, {
         amount: parseFloat(contributionFormData.amount),
-        description: contributionFormData.description
+        description: contributionFormData.description,
       });
-      toast.success('Contribuição adicionada!');
+      toast.success("Contribuição adicionada!");
       setContributionModalOpen(false);
-      setContributionFormData({ amount: '', description: '' });
+      setContributionFormData({ amount: "", description: "" });
       fetchGoals();
     } catch (error) {
-      console.error('Error creating contribution:', error);
-      toast.error('Erro ao adicionar contribuição');
+      console.error("Error creating contribution:", error);
+      toast.error("Erro ao adicionar contribuição");
     }
   };
 
   const formatCurrency = (value) => {
-    return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value);
+    return new Intl.NumberFormat("pt-BR", {
+      style: "currency",
+      currency: "BRL",
+    }).format(value);
   };
 
   const calculateProgress = (current, target) => {
@@ -143,8 +154,12 @@ const SavingsGoals = () => {
         <Card>
           <CardContent className="py-16 text-center">
             <Target size={64} className="mx-auto text-slate-300 mb-4" />
-            <h3 className="text-xl font-semibold text-slate-900 mb-2">Nenhuma meta cadastrada</h3>
-            <p className="text-slate-600 mb-6">Comece definindo suas metas de economia!</p>
+            <h3 className="text-xl font-semibold text-slate-900 mb-2">
+              Nenhuma meta cadastrada
+            </h3>
+            <p className="text-slate-600 mb-6">
+              Comece definindo suas metas de economia!
+            </p>
             <Button
               onClick={() => setGoalModalOpen(true)}
               className="bg-emerald-500 hover:bg-emerald-600"
@@ -156,9 +171,12 @@ const SavingsGoals = () => {
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {goals.map((goal) => {
-            const progress = calculateProgress(goal.current_amount, goal.target_amount);
+            const progress = calculateProgress(
+              goal.current_amount,
+              goal.target_amount,
+            );
             const remaining = goal.target_amount - goal.current_amount;
-            
+
             return (
               <Card key={goal.id} className="card-hover">
                 <CardHeader>
@@ -168,7 +186,9 @@ const SavingsGoals = () => {
                       <div>
                         <CardTitle className="text-lg">{goal.name}</CardTitle>
                         {goal.description && (
-                          <p className="text-sm text-slate-600 mt-1">{goal.description}</p>
+                          <p className="text-sm text-slate-600 mt-1">
+                            {goal.description}
+                          </p>
                         )}
                       </div>
                     </div>
@@ -217,7 +237,8 @@ const SavingsGoals = () => {
                       </div>
                       {goal.deadline && (
                         <p className="text-xs text-slate-600 text-center">
-                          Prazo: {new Date(goal.deadline).toLocaleDateString('pt-BR')}
+                          Prazo:{" "}
+                          {new Date(goal.deadline).toLocaleDateString("pt-BR")}
                         </p>
                       )}
                     </div>
@@ -256,7 +277,9 @@ const SavingsGoals = () => {
               <Input
                 id="name"
                 value={goalFormData.name}
-                onChange={(e) => setGoalFormData({ ...goalFormData, name: e.target.value })}
+                onChange={(e) =>
+                  setGoalFormData({ ...goalFormData, name: e.target.value })
+                }
                 placeholder="Ex: Viagem para Europa"
                 data-testid="goal-name-input"
               />
@@ -266,7 +289,12 @@ const SavingsGoals = () => {
               <Textarea
                 id="description"
                 value={goalFormData.description}
-                onChange={(e) => setGoalFormData({ ...goalFormData, description: e.target.value })}
+                onChange={(e) =>
+                  setGoalFormData({
+                    ...goalFormData,
+                    description: e.target.value,
+                  })
+                }
                 placeholder="Detalhes sobre a meta..."
                 rows={2}
                 data-testid="goal-description-input"
@@ -280,7 +308,12 @@ const SavingsGoals = () => {
                   type="number"
                   step="0.01"
                   value={goalFormData.target_amount}
-                  onChange={(e) => setGoalFormData({ ...goalFormData, target_amount: e.target.value })}
+                  onChange={(e) =>
+                    setGoalFormData({
+                      ...goalFormData,
+                      target_amount: e.target.value,
+                    })
+                  }
                   placeholder="0.00"
                   data-testid="goal-target-input"
                 />
@@ -291,7 +324,12 @@ const SavingsGoals = () => {
                   id="deadline"
                   type="date"
                   value={goalFormData.deadline}
-                  onChange={(e) => setGoalFormData({ ...goalFormData, deadline: e.target.value })}
+                  onChange={(e) =>
+                    setGoalFormData({
+                      ...goalFormData,
+                      deadline: e.target.value,
+                    })
+                  }
                   data-testid="goal-deadline-input"
                 />
               </div>
@@ -305,9 +343,10 @@ const SavingsGoals = () => {
                     onClick={() => setGoalFormData({ ...goalFormData, icon })}
                     className={`
                       text-3xl p-2 rounded-lg border-2 transition-all
-                      ${goalFormData.icon === icon 
-                        ? 'border-emerald-500 bg-emerald-50' 
-                        : 'border-slate-200 hover:border-slate-300'
+                      ${
+                        goalFormData.icon === icon
+                          ? "border-emerald-500 bg-emerald-50"
+                          : "border-slate-200 hover:border-slate-300"
                       }
                     `}
                     data-testid={`goal-icon-${index}`}
@@ -334,7 +373,10 @@ const SavingsGoals = () => {
       </Dialog>
 
       {/* Contribution Modal */}
-      <Dialog open={contributionModalOpen} onOpenChange={setContributionModalOpen}>
+      <Dialog
+        open={contributionModalOpen}
+        onOpenChange={setContributionModalOpen}
+      >
         <DialogContent data-testid="contribution-modal">
           <DialogHeader>
             <DialogTitle>Adicionar Contribuição</DialogTitle>
@@ -350,17 +392,29 @@ const SavingsGoals = () => {
                 type="number"
                 step="0.01"
                 value={contributionFormData.amount}
-                onChange={(e) => setContributionFormData({ ...contributionFormData, amount: e.target.value })}
+                onChange={(e) =>
+                  setContributionFormData({
+                    ...contributionFormData,
+                    amount: e.target.value,
+                  })
+                }
                 placeholder="0.00"
                 data-testid="contribution-amount-input"
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="contribution_description">Descrição (opcional)</Label>
+              <Label htmlFor="contribution_description">
+                Descrição (opcional)
+              </Label>
               <Textarea
                 id="contribution_description"
                 value={contributionFormData.description}
-                onChange={(e) => setContributionFormData({ ...contributionFormData, description: e.target.value })}
+                onChange={(e) =>
+                  setContributionFormData({
+                    ...contributionFormData,
+                    description: e.target.value,
+                  })
+                }
                 placeholder="Observações..."
                 rows={2}
                 data-testid="contribution-description-input"
@@ -368,7 +422,10 @@ const SavingsGoals = () => {
             </div>
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setContributionModalOpen(false)}>
+            <Button
+              variant="outline"
+              onClick={() => setContributionModalOpen(false)}
+            >
               Cancelar
             </Button>
             <Button

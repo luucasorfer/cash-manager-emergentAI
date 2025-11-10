@@ -81,7 +81,7 @@ class FixedExpenseMonthDB(Base):
     month: Mapped[int] = mapped_column(Integer)
     year: Mapped[int] = mapped_column(Integer)
     status: Mapped[str] = mapped_column(String(20), default="pending")
-    payment_method: Mapped[Optional[str]] = mapped_column(String(20), nullable=True)
+    payment_type_id: Mapped[int] = mapped_column(Integer)
     paid_date: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime)
 
@@ -92,7 +92,7 @@ class VariableExpenseDB(Base):
     name: Mapped[str] = mapped_column(String(255))
     category_id: Mapped[int] = mapped_column(Integer)
     amount: Mapped[float] = mapped_column(Float)
-    payment_method: Mapped[Optional[str]] = mapped_column(String(20), nullable=True)
+    payment_type_id: Mapped[int] = mapped_column(Integer)
     date: Mapped[datetime] = mapped_column(DateTime)
     installments: Mapped[int] = mapped_column(Integer, default=1)
     current_installment: Mapped[int] = mapped_column(Integer, default=1)

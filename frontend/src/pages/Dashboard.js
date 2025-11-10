@@ -130,10 +130,12 @@ const Dashboard = () => {
               className="border-amber-200 bg-amber-50"
               data-testid="alert-item"
             >
-              <AlertCircle className="h-4 w-4 text-amber-600" />
-              <AlertDescription className="text-amber-800">
-                {alert.message}
-              </AlertDescription>
+              <div className="flex items-center gap-2">
+                <AlertCircle className="h-4 w-4 text-amber-600" />
+                <AlertDescription className="text-amber-800">
+                  {alert.message}
+                </AlertDescription>
+              </div>
             </Alert>
           ))}
         </div>
@@ -215,11 +217,20 @@ const Dashboard = () => {
                         </div>
                       </td>
                       <td className="text-right py-3 px-4 font-semibold text-rose-600">
-                        {formatCurrency(expense.amount)}
+                        <span className="inline-block min-w-[70px] text-left">
+                          R$
+                        </span>
+                        <span className="inline-block min-w-[70px] text-right">
+                          {formatCurrency(expense.amount)
+                            .replace("R$", "")
+                            .trim()}
+                        </span>
                       </td>
                       <td className="text-center py-3 px-4 text-sm text-slate-600">
                         {expense.type === "fixed"
-                          ? `Dia ${expense.due_day}`
+                          ? `${expense.due_day
+                              .toString()
+                              .padStart(2, "0")}/${currentMonth}/${currentYear}`
                           : new Date(expense.date).toLocaleDateString("pt-BR")}
                       </td>
                       <td className="text-center py-3 px-4">
@@ -262,10 +273,17 @@ const Dashboard = () => {
                     </div>
                     <div className="text-right">
                       <div className="font-semibold text-slate-900">
-                        {formatCurrency(category.amount)}
+                        <span className="inline-block min-w-[30px] text-left">
+                          R$
+                        </span>
+                        <span className="inline-block min-w-[70px] text-right">
+                          {formatCurrency(category.amount)
+                            .replace("R$", "")
+                            .trim()}
+                        </span>
                       </div>
                       <div className="text-xs text-slate-500">
-                        {category.percentage}%
+                        {category.percentage.toFixed(2).replace(".", ",")}%
                       </div>
                     </div>
                   </div>

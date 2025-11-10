@@ -31,8 +31,8 @@ const EmergencyReserve = () => {
     try {
       setLoading(true);
       const [reservesRes, balanceRes] = await Promise.all([
-        apiClient.get("/emergency-reserve"),
-        apiClient.get("/emergency-reserve/total"),
+        apiClient.get("/emergency_reserve"),
+        apiClient.get("/emergency_reserve/total"),
       ]);
       setReserves(reservesRes.data);
       setBalance(balanceRes.data.total);
@@ -58,7 +58,7 @@ const EmergencyReserve = () => {
       const amount = parseFloat(formData.amount);
       const finalAmount = transactionType === "withdrawal" ? -amount : amount;
 
-      await apiClient.post("/emergency-reserve", {
+      await apiClient.post("/emergency_reserve", {
         amount: finalAmount,
         description: formData.description,
         date: new Date(formData.date).toISOString(),
@@ -87,7 +87,7 @@ const EmergencyReserve = () => {
       return;
 
     try {
-      await apiClient.delete(`/emergency-reserve/${id}`);
+      await apiClient.delete(`/emergency_reserve/${id}`);
       toast.success("Movimentação excluída!");
       fetchReserves();
     } catch (error) {
