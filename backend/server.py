@@ -92,7 +92,7 @@ class VariableExpenseDB(Base):
     name: Mapped[str] = mapped_column(String(255))
     category_id: Mapped[int] = mapped_column(Integer)
     amount: Mapped[float] = mapped_column(Float)
-    payment_type_id: Mapped[int] = mapped_column(Integer)
+    payment_type_id: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
     date: Mapped[datetime] = mapped_column(DateTime)
     installments: Mapped[int] = mapped_column(Integer, default=1)
     current_installment: Mapped[int] = mapped_column(Integer, default=1)
@@ -246,6 +246,37 @@ class VariableExpense(BaseModel):
     notes: Optional[str] = None
     paid_date: Optional[datetime] = None
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    
+    @classmethod
+    def model_validate(cls, obj):
+        """
+        Converte payment_type_id do banco de dados para payment_method do modelo Pydantic
+        """
+        # Mapeamento reverso: payment_type_id -> PaymentMethod
+        payment_type_reverse_map = {
+            1: PaymentMethod.CREDIT,
+            2: PaymentMethod.DEBIT,
+            3: PaymentMethod.PIX,
+            4: PaymentMethod.CASH
+        }
+        
+        if hasattr(obj, 'payment_type_id'):
+            data = {
+                'id': obj.id,
+                'name': obj.name,
+                'category_id': obj.category_id,
+                'amount': obj.amount,
+                'payment_method': payment_type_reverse_map.get(obj.payment_type_id) if obj.payment_type_id else None,
+                'date': obj.date,
+                'installments': obj.installments,
+                'current_installment': obj.current_installment,
+                'status': obj.status,
+                'notes': obj.notes,
+                'paid_date': obj.paid_date,
+                'created_at': obj.created_at
+            }
+            return cls(**data)
+        return super().model_validate(obj)
 
 class VariableExpenseCreate(BaseModel):
     name: str
@@ -666,11 +697,22 @@ async def create_variable_expense(input: VariableExpenseCreate, db: AsyncSession
                 year += 1
             expense_date = input.date.replace(month=month, year=year)
         
+        # Mapeia PaymentMethod para payment_type_id
+        payment_type_id = None
+        if input.payment_method:
+            payment_type_map = {
+                PaymentMethod.CREDIT: 1,
+                PaymentMethod.DEBIT: 2,
+                PaymentMethod.PIX: 3,
+                PaymentMethod.CASH: 4
+            }
+            payment_type_id = payment_type_map.get(input.payment_method)
+        
         db_expense = VariableExpenseDB(
             name=f"{input.name} {i+1}/{input.installments}" if input.installments > 1 else input.name,
             category_id=input.category_id,
             amount=input.amount,
-            payment_method=input.payment_method.value if input.payment_method else None,
+            payment_type_id=payment_type_id,
             date=expense_date,
             installments=input.installments,
             current_installment=i + 1,
@@ -697,7 +739,14 @@ async def update_variable_expense(expense_id: int, input: VariableExpenseUpdate,
     update_data = input.model_dump(exclude_unset=True)
     for key, value in update_data.items():
         if key == "payment_method" and value:
-            setattr(expense, key, value.value)
+            # Mapeia PaymentMethod para payment_type_id
+            payment_type_map = {
+                PaymentMethod.CREDIT: 1,
+                PaymentMethod.DEBIT: 2,
+                PaymentMethod.PIX: 3,
+                PaymentMethod.CASH: 4
+            }
+            setattr(expense, "payment_type_id", payment_type_map.get(value))
         else:
             setattr(expense, key, value)
     
@@ -712,8 +761,16 @@ async def mark_variable_expense_as_paid(expense_id: int, input: MarkAsPaidReques
     if not expense:
         raise HTTPException(status_code=404, detail="Expense not found")
     
+    # Mapeia PaymentMethod para payment_type_id
+    payment_type_map = {
+        PaymentMethod.CREDIT: 1,
+        PaymentMethod.DEBIT: 2,
+        PaymentMethod.PIX: 3,
+        PaymentMethod.CASH: 4
+    }
+    
     expense.status = PaymentStatus.PAID.value
-    expense.payment_method = input.payment_method.value
+    expense.payment_type_id = payment_type_map.get(input.payment_method)
     expense.paid_date = datetime.now(timezone.utc)
     
     await db.commit()

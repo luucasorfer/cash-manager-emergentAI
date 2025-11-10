@@ -163,7 +163,7 @@ const VariableExpenses = () => {
   const handleMarkAsPaid = async (paymentMethod) => {
     try {
       await apiClient.post(
-        `/variable_expenses/${paymentModal.expense.id}/mark-paid`,
+        `/variable_expenses/${paymentModal.expense.id}/mark-as-paid`,
         {
           payment_method: paymentMethod,
         },

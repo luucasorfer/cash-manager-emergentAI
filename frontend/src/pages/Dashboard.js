@@ -48,8 +48,8 @@ const Dashboard = () => {
     try {
       const endpoint =
         paymentModal.expense.type === "fixed"
-          ? `/fixed-expenses/${paymentModal.expense.id}/mark-paid`
-          : `/variable-expenses/${paymentModal.expense.id}/mark-paid`;
+          ? `/fixed-expenses/${paymentModal.expense.id}/mark-as-paid`
+          : `/variable-expenses/${paymentModal.expense.id}/mark-as-paid`;
 
       await apiClient.post(endpoint, { payment_method: paymentMethod });
       toast.success("Despesa marcada como paga!");
