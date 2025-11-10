@@ -81,7 +81,7 @@ class FixedExpenseMonthDB(Base):
     month: Mapped[int] = mapped_column(Integer)
     year: Mapped[int] = mapped_column(Integer)
     status: Mapped[str] = mapped_column(String(20), default="pending")
-    payment_type_id: Mapped[int] = mapped_column(Integer)
+    payment_type_id: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
     paid_date: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime)
 
@@ -169,7 +169,7 @@ class FixedExpenseMonth(BaseModel):
     month: int
     year: int
     status: PaymentStatus = PaymentStatus.PENDING
-    payment_method: Optional[PaymentMethod] = None
+    payment_type_id: Optional[int] = None
     paid_date: Optional[datetime] = None
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
@@ -197,10 +197,26 @@ class FixedExpenseTemplate(BaseModel):
     id: int
     name: str
     category_id: int
-    amount: float = Field(alias="base_amount")
+    amount: float = Field(serialization_alias="amount")
     due_day: int
     is_active: bool = True
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    
+    @classmethod
+    def model_validate(cls, obj):
+        # Mapeia base_amount para amount durante a validação
+        if hasattr(obj, 'base_amount'):
+            data = {
+                'id': obj.id,
+                'name': obj.name,
+                'category_id': obj.category_id,
+                'amount': obj.base_amount,
+                'due_day': obj.due_day,
+                'is_active': obj.is_active,
+                'created_at': obj.created_at
+            }
+            return cls(**data)
+        return super().model_validate(obj)
 
 class FixedExpenseTemplateCreate(BaseModel):
     name: str
@@ -587,8 +603,16 @@ async def mark_fixed_expense_as_paid(expense_id: int, input: MarkAsPaidRequest, 
     if not expense:
         raise HTTPException(status_code=404, detail="Expense not found")
     
+    # Mapeia PaymentMethod para payment_type_id
+    payment_type_map = {
+        PaymentMethod.CREDIT: 1,
+        PaymentMethod.DEBIT: 2,
+        PaymentMethod.PIX: 3,
+        PaymentMethod.CASH: 4
+    }
+    
     expense.status = PaymentStatus.PAID.value
-    expense.payment_method = input.payment_method.value
+    expense.payment_type_id = payment_type_map.get(input.payment_method)
     expense.paid_date = datetime.now(timezone.utc)
     
     await db.commit()

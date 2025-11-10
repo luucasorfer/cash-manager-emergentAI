@@ -75,7 +75,7 @@ const FixedExpenseTemplates = () => {
     try {
       await apiClient.post("/fixed-expense-templates", {
         ...formData,
-        base_amount: parseFloat(formData.amount?.replace(",", ".") || 0),
+        amount: parseFloat(formData.amount?.replace(",", ".") || 0),
         due_day: parseInt(formData.due_day),
       });
       toast.success("Template criado com sucesso!");
@@ -102,7 +102,7 @@ const FixedExpenseTemplates = () => {
     try {
       await apiClient.put(`/fixed-expense-templates/${editingTemplate.id}`, {
         ...formData,
-        base_amount: parseFloat(formData.amount?.replace(",", ".") || 0),
+        amount: parseFloat(formData.amount?.replace(",", ".") || 0),
         due_day: parseInt(formData.due_day),
       });
       toast.success("Template atualizado!");
@@ -193,7 +193,7 @@ const FixedExpenseTemplates = () => {
     setFormData({
       name: template.name,
       category_id: template.category_id,
-      amount: template.base_amount.toString(),
+      amount: template.amount.toString(),
       due_day: template.due_day.toString(),
     });
     setModalOpen(true);
@@ -329,7 +329,7 @@ const FixedExpenseTemplates = () => {
                           </div>
                         </td>
                         <td className="text-right py-3 px-4 font-semibold text-slate-900">
-                          {formatCurrency(Number(template.base_amount) || 0)}
+                          {formatCurrency(Number(template.amount) || 0)}
                         </td>
                         <td className="text-center py-3 px-4 text-sm text-slate-600">
                           Dia {template.due_day}
