@@ -64,7 +64,7 @@ class FixedExpenseTemplateDB(Base):
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     name: Mapped[str] = mapped_column(String(255))
     category_id: Mapped[int] = mapped_column(Integer)
-    amount: Mapped[float] = mapped_column(Float)
+    base_amount: Mapped[float] = mapped_column(Float)
     due_day: Mapped[int] = mapped_column(Integer)
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
     created_at: Mapped[datetime] = mapped_column(DateTime)
@@ -184,7 +184,7 @@ class FixedExpenseMonthCreate(BaseModel):
 
 class FixedExpenseMonthUpdate(BaseModel):
     name: Optional[str] = None
-    category_id: Optional[str] = None
+    category_id: Optional[int] = None
     amount: Optional[float] = None
     due_day: Optional[int] = None
 
@@ -193,11 +193,11 @@ class MarkAsPaidRequest(BaseModel):
 
 
 class FixedExpenseTemplate(BaseModel):
-    model_config = ConfigDict(extra="ignore", from_attributes=True)
+    model_config = ConfigDict(extra="ignore", from_attributes=True, populate_by_name=True)
     id: int
     name: str
     category_id: int
-    amount: float
+    amount: float = Field(alias="base_amount")
     due_day: int
     is_active: bool = True
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
@@ -210,7 +210,7 @@ class FixedExpenseTemplateCreate(BaseModel):
 
 class FixedExpenseTemplateUpdate(BaseModel):
     name: Optional[str] = None
-    category_id: Optional[str] = None
+    category_id: Optional[int] = None
     amount: Optional[float] = None
     due_day: Optional[int] = None
     is_active: Optional[bool] = None
@@ -242,7 +242,7 @@ class VariableExpenseCreate(BaseModel):
 
 class VariableExpenseUpdate(BaseModel):
     name: Optional[str] = None
-    category_id: Optional[str] = None
+    category_id: Optional[int] = None
     amount: Optional[float] = None
     payment_method: Optional[PaymentMethod] = None
     date: Optional[datetime] = None
@@ -385,7 +385,7 @@ async def create_fixed_expense_template(input: FixedExpenseTemplateCreate, db: A
     db_template = FixedExpenseTemplateDB(
         name=input.name,
         category_id=input.category_id,
-        amount=input.amount,
+        base_amount=input.amount,
         due_day=input.due_day,
         is_active=True,
         created_at=datetime.now(timezone.utc)
@@ -404,7 +404,11 @@ async def update_fixed_expense_template(template_id: int, input: FixedExpenseTem
     
     update_data = input.model_dump(exclude_unset=True)
     for key, value in update_data.items():
-        setattr(template, key, value)
+        # Mapeia 'amount' para 'base_amount' no banco
+        if key == 'amount':
+            setattr(template, 'base_amount', value)
+        else:
+            setattr(template, key, value)
     
     await db.commit()
     await db.refresh(template)
@@ -420,6 +424,115 @@ async def delete_fixed_expense_template(template_id: int, db: AsyncSession = Dep
     await db.commit()
     return {"message": "Template deleted"}
 
+@api_router.post("/fixed-expense-templates/{template_id}/generate-month", response_model=FixedExpenseMonth)
+async def generate_month_from_template(
+    template_id: int, 
+    month: int, 
+    year: int, 
+    db: AsyncSession = Depends(get_db)
+):
+    """Gera uma instância mensal a partir de um template específico"""
+    # Busca o template
+    result = await db.execute(select(FixedExpenseTemplateDB).where(FixedExpenseTemplateDB.id == template_id))
+    template = result.scalar_one_or_none()
+    if not template:
+        raise HTTPException(status_code=404, detail="Template not found")
+    
+    if not template.is_active:
+        raise HTTPException(status_code=400, detail="Template is not active")
+    
+    # Verifica se já existe uma instância para este mês/ano
+    result = await db.execute(
+        select(FixedExpenseMonthDB).where(
+            FixedExpenseMonthDB.fixed_expense_id == template_id,
+            FixedExpenseMonthDB.month == month,
+            FixedExpenseMonthDB.year == year
+        )
+    )
+    existing = result.scalar_one_or_none()
+    if existing:
+        raise HTTPException(status_code=400, detail="Expense already exists for this month")
+    
+    # Cria a instância mensal
+    db_expense = FixedExpenseMonthDB(
+        fixed_expense_id=template.id,
+        name=template.name,
+        category_id=template.category_id,
+        amount=template.base_amount,
+        due_day=template.due_day,
+        month=month,
+        year=year,
+        status=PaymentStatus.PENDING,
+        created_at=datetime.now(timezone.utc)
+    )
+    db.add(db_expense)
+    await db.commit()
+    await db.refresh(db_expense)
+    return FixedExpenseMonth.model_validate(db_expense)
+
+@api_router.post("/fixed-expense-templates/generate-all-for-month")
+async def generate_all_templates_for_month(
+    month: int, 
+    year: int, 
+    db: AsyncSession = Depends(get_db)
+):
+    """Gera instâncias mensais para todos os templates ativos"""
+    # Busca todos os templates ativos
+    result = await db.execute(
+        select(FixedExpenseTemplateDB).where(FixedExpenseTemplateDB.is_active == True)
+    )
+    templates = result.scalars().all()
+    
+    if not templates:
+        return {"message": "No active templates found", "created": 0, "skipped": 0}
+    
+    created_count = 0
+    skipped_count = 0
+    created_expenses = []
+    
+    for template in templates:
+        # Verifica se já existe
+        result = await db.execute(
+            select(FixedExpenseMonthDB).where(
+                FixedExpenseMonthDB.fixed_expense_id == template.id,
+                FixedExpenseMonthDB.month == month,
+                FixedExpenseMonthDB.year == year
+            )
+        )
+        existing = result.scalar_one_or_none()
+        
+        if existing:
+            skipped_count += 1
+            continue
+        
+        # Cria a instância mensal
+        db_expense = FixedExpenseMonthDB(
+            fixed_expense_id=template.id,
+            name=template.name,
+            category_id=template.category_id,
+            amount=template.base_amount,
+            due_day=template.due_day,
+            month=month,
+            year=year,
+            status=PaymentStatus.PENDING,
+            created_at=datetime.now(timezone.utc)
+        )
+        db.add(db_expense)
+        created_count += 1
+        created_expenses.append({
+            "name": template.name,
+            "amount": template.base_amount
+        })
+    
+    await db.commit()
+    
+    return {
+        "message": f"Generated {created_count} expenses, skipped {skipped_count} existing",
+        "created": created_count,
+        "skipped": skipped_count,
+        "expenses": created_expenses
+    }
+
 
 # Fixed Expenses by Month
 @api_router.get("/fixed_expenses_months", response_model=List[FixedExpenseMonth])
@@ -434,7 +547,7 @@ async def get_fixed_expenses(month: Optional[int] = None, year: Optional[int] = 
     expenses = result.scalars().all()
     return [FixedExpenseMonth.model_validate(e) for e in expenses]
 
-@api_router.post("/fixed_expense_templates", response_model=FixedExpenseMonth)
+@api_router.post("/fixed_expenses_months", response_model=FixedExpenseMonth)
 async def create_fixed_expense_month(input: FixedExpenseMonthCreate, db: AsyncSession = Depends(get_db)):
     db_expense = FixedExpenseMonthDB(
         fixed_expense_id=input.fixed_expense_id,

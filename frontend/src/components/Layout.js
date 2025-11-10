@@ -4,6 +4,7 @@ import {
   Home,
   Tag,
   CreditCard,
+  FileText,
   ShoppingCart,
   DollarSign,
   Shield,
@@ -20,6 +21,7 @@ const Layout = ({ children }) => {
     { path: "/", icon: Home, label: "Dashboard" },
     { path: "/categories", icon: Tag, label: "Categorias" },
     { path: "/fixed-expenses", icon: CreditCard, label: "Gastos Fixos" },
+    { path: "/fixed-expense-templates", icon: FileText, label: "Templates" },
     {
       path: "/variable-expenses",
       icon: ShoppingCart,

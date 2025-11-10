@@ -19,7 +19,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import PaymentModal from "../components/PaymentModal";
-import { Plus, Pencil, Trash2, CheckCircle, Calendar } from "lucide-react";
+import { Plus, Pencil, Trash2, CheckCircle, Calendar, Zap } from "lucide-react";
 import { toast } from "sonner";
 
 const FixedExpenses = () => {
@@ -71,7 +71,60 @@ const FixedExpenses = () => {
 
   useEffect(() => {
     fetchExpenses();
+    checkAndSuggestGeneration();
   }, [currentMonth, currentYear]);
+
+  const checkAndSuggestGeneration = async () => {
+    try {
+      // Verifica se existem despesas para o mês atual
+      const response = await apiClient.get(
+        `/fixed_expenses_months?month=${currentMonth}&year=${currentYear}`,
+      );
+
+      // Se não houver despesas, verifica se existem templates ativos
+      if (response.data.length === 0) {
+        const templatesResponse = await apiClient.get(
+          "/fixed-expense-templates",
+        );
+        const activeTemplates = templatesResponse.data.filter(
+          (t) => t.is_active,
+        );
+
+        if (activeTemplates.length > 0) {
+          // Sugere gerar despesas automaticamente
+          const shouldGenerate = window.confirm(
+            `Não há despesas fixas cadastradas para este mês.\n\n` +
+              `Você tem ${activeTemplates.length} template(s) ativo(s).\n\n` +
+              `Deseja gerar as despesas automaticamente?`,
+          );
+
+          if (shouldGenerate) {
+            await handleGenerateFromTemplates();
+          }
+        }
+      }
+    } catch (error) {
+      console.error("Error checking templates:", error);
+    }
+  };
+
+  const handleGenerateFromTemplates = async () => {
+    try {
+      const response = await apiClient.post(
+        `/fixed-expense-templates/generate-all-for-month?month=${currentMonth}&year=${currentYear}`,
+      );
+      const { created, skipped } = response.data;
+      if (created > 0) {
+        toast.success(`${created} despesa(s) gerada(s) automaticamente!`);
+        fetchExpenses();
+      } else {
+        toast.info("Nenhuma despesa nova foi gerada");
+      }
+    } catch (error) {
+      console.error("Error generating from templates:", error);
+      toast.error("Erro ao gerar despesas dos templates");
+    }
+  };
 
   const handleCreate = async () => {
     if (
@@ -86,7 +139,7 @@ const FixedExpenses = () => {
 
     try {
       const expenseId = `fixed-${Date.now()}`;
-      await apiClient.post("/fixed_expense_templates", {
+      await apiClient.post("/fixed_expenses_months", {
         fixed_expense_id: expenseId,
         ...formData,
         amount: parseFloat(formData.amount),
@@ -212,14 +265,24 @@ const FixedExpenses = () => {
     <div className="space-y-6" data-testid="fixed-expenses-page">
       <div className="flex justify-between items-center">
         <h1 className="text-3xl font-bold text-slate-900">Gastos Fixos</h1>
-        <Button
-          onClick={openCreateModal}
-          className="bg-emerald-500 hover:bg-emerald-600"
-          data-testid="add-fixed-expense-btn"
-        >
-          <Plus size={20} className="mr-2" />
-          Novo Gasto Fixo
-        </Button>
+        <div className="flex gap-2">
+          <Button
+            onClick={handleGenerateFromTemplates}
+            className="bg-blue-500 hover:bg-blue-600"
+            data-testid="generate-from-templates-btn"
+          >
+            <Zap size={20} className="mr-2" />
+            Gerar dos Templates
+          </Button>
+          <Button
+            onClick={openCreateModal}
+            className="bg-emerald-500 hover:bg-emerald-600"
+            data-testid="add-fixed-expense-btn"
+          >
+            <Plus size={20} className="mr-2" />
+            Novo Gasto Fixo
+          </Button>
+        </div>
       </div>
 
       {/* Month/Year Selector */}

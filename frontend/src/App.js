@@ -5,6 +5,7 @@ import axios from "axios";
 import Dashboard from "./pages/Dashboard";
 import Categories from "./pages/Categories";
 import FixedExpenses from "./pages/FixedExpenses";
+import FixedExpenseTemplates from "./pages/FixedExpenseTemplates";
 import VariableExpenses from "./pages/VariableExpenses";
 import Incomes from "./pages/Incomes";
 import EmergencyReserve from "./pages/EmergencyReserve";
@@ -28,6 +29,10 @@ function App() {
             <Route path="/" element={<Dashboard />} />
             <Route path="/categories" element={<Categories />} />
             <Route path="/fixed-expenses" element={<FixedExpenses />} />
+            <Route
+              path="/fixed-expense-templates"
+              element={<FixedExpenseTemplates />}
+            />
             <Route path="/variable-expenses" element={<VariableExpenses />} />
             <Route path="/incomes" element={<Incomes />} />
             <Route path="/emergency-reserve" element={<EmergencyReserve />} />
