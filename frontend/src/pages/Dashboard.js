@@ -158,16 +158,16 @@ const Dashboard = () => {
         <StatCard
           icon={Wallet}
           title="Saldo"
-          value={formatCurrency(dashboard?.balance || 0)}
+          value={formatCurrency(dashboard?.balance_paid || 0)}
+          subtitle={`Saldo Previsto: ${formatCurrency(
+            dashboard?.balance || 0,
+          )}`}
           color={dashboard?.balance >= 0 ? "blue" : "rose"}
         />
         <StatCard
           icon={Shield}
-          title="Com Reserva"
-          value={formatCurrency(dashboard?.balance_with_reserve || 0)}
-          subtitle={`Reserva: ${formatCurrency(
-            dashboard?.emergency_reserve || 0,
-          )}`}
+          title="Reserva de Emergência"
+          value={formatCurrency(dashboard?.emergency_reserve || 0)}
           color="violet"
         />
       </div>

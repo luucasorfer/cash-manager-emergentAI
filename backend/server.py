@@ -73,7 +73,7 @@ class FixedExpenseMonthDB(Base):
     __tablename__ = "fixed_expenses_months"
     
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
-    fixed_expense_id: Mapped[int] = mapped_column(Integer)
+    fixed_expense_id: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
     name: Mapped[str] = mapped_column(String(255))
     category_id: Mapped[int] = mapped_column(Integer)
     amount: Mapped[float] = mapped_column(Float)
@@ -161,7 +161,7 @@ class CategoryCreate(BaseModel):
 class FixedExpenseMonth(BaseModel):
     model_config = ConfigDict(extra="ignore", from_attributes=True)
     id: int
-    fixed_expense_id: int
+    fixed_expense_id: Optional[int] = None
     name: str
     category_id: int
     amount: float
@@ -174,7 +174,7 @@ class FixedExpenseMonth(BaseModel):
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
 class FixedExpenseMonthCreate(BaseModel):
-    fixed_expense_id: int
+    fixed_expense_id: Optional[int] = None
     name: str
     category_id: int
     amount: float
@@ -380,6 +380,7 @@ class DashboardSummary(BaseModel):
     total_income: float
     total_expenses: float
     balance: float
+    balance_paid: float
     emergency_reserve: float
     balance_with_reserve: float
     pending_expenses: List[dict]
@@ -597,7 +598,7 @@ async def get_fixed_expenses(month: Optional[int] = None, year: Optional[int] = 
 @api_router.post("/fixed_expenses_months", response_model=FixedExpenseMonth)
 async def create_fixed_expense_month(input: FixedExpenseMonthCreate, db: AsyncSession = Depends(get_db)):
     db_expense = FixedExpenseMonthDB(
-        fixed_expense_id=input.fixed_expense_id,
+        fixed_expense_id=None,  # Pode ser None se não for baseado em um template
         name=input.name,
         category_id=input.category_id,
         amount=input.amount,
@@ -1026,9 +1027,30 @@ async def get_dashboard(month: int, year: int, db: AsyncSession = Depends(get_db
     all_variable = result.scalars().all()
     variable_expenses = [e for e in all_variable if e.date.month == month and e.date.year == year]
     
+    # --- Total de todas as despesas 
     total_expenses = sum(e.amount for e in fixed_expenses) + sum(e.amount for e in variable_expenses)
-    balance = total_income - total_expenses
     
+    print("Fixed expenses pagos:")
+    for e in fixed_expenses:
+        if e.status == "paid":
+            print(f"id={e.id} amount={e.amount} status='{e.status}' type={type(e.amount)}")
+
+    print("Variable expenses pagos:")
+    for e in variable_expenses:
+        if e.status == "paid":
+            print(f"id={e.id} amount={e.amount} status='{e.status}' type={type(e.amount)}")
+
+
+    # --- Total apenas das despesas pagas
+    total_expenses_paid = (
+        sum(e.amount for e in fixed_expenses if e.status == "paid") +
+        sum(e.amount for e in variable_expenses if e.status == "paid")
+    )
+
+    # --- Saldos
+    balance = total_income - total_expenses              # saldo total (inclui pendentes)
+    balance_paid = total_income - total_expenses_paid    # saldo apenas considerando despesas pagas
+
     # Emergency reserve
     result = await db.execute(select(EmergencyReserveDB))
     reserves = result.scalars().all()
@@ -1065,15 +1087,11 @@ async def get_dashboard(month: int, year: int, db: AsyncSession = Depends(get_db
     expenses_by_category = {}
     for exp in fixed_expenses:
         cat_id = exp.category_id
-        if cat_id not in expenses_by_category:
-            expenses_by_category[cat_id] = 0
-        expenses_by_category[cat_id] += exp.amount
+        expenses_by_category[cat_id] = expenses_by_category.get(cat_id, 0) + exp.amount
     
     for exp in variable_expenses:
         cat_id = exp.category_id
-        if cat_id not in expenses_by_category:
-            expenses_by_category[cat_id] = 0
-        expenses_by_category[cat_id] += exp.amount
+        expenses_by_category[cat_id] = expenses_by_category.get(cat_id, 0) + exp.amount
     
     # Calculate percentages
     expenses_by_category_list = []
@@ -1106,13 +1124,13 @@ async def get_dashboard(month: int, year: int, db: AsyncSession = Depends(get_db
         total_income=total_income,
         total_expenses=total_expenses,
         balance=balance,
+        balance_paid=balance_paid,  # 👈 novo campo aqui
         emergency_reserve=emergency_reserve,
         balance_with_reserve=balance_with_reserve,
         pending_expenses=pending_expenses,
         expenses_by_category=expenses_by_category_list,
         alerts=alerts
     )
-
 
 # Include router in app
 app.include_router(api_router)

@@ -138,9 +138,7 @@ const FixedExpenses = () => {
     }
 
     try {
-      const expenseId = `fixed-${Date.now()}`;
       await apiClient.post("/fixed_expenses_months", {
-        fixed_expense_id: expenseId,
         ...formData,
         amount: parseFloat(formData.amount),
         due_day: parseInt(formData.due_day),
@@ -149,7 +147,14 @@ const FixedExpenses = () => {
       });
       toast.success("Gasto fixo adicionado!");
       setModalOpen(false);
-      setFormData({ name: "", category_id: "", amount: "", due_day: "" });
+      setFormData({
+        name: "",
+        category_id: "",
+        amount: "",
+        due_day: "",
+        month: "",
+        year: "",
+      });
       fetchExpenses();
     } catch (error) {
       console.error("Error creating expense:", error);

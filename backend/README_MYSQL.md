@@ -2,10 +2,6 @@
 
 Sistema de gerenciamento financeiro pessoal com backend em FastAPI e MySQL.
 
-## 🔄 Migração para MySQL
-
-Este projeto foi **migrado de MongoDB para MySQL**. Para detalhes completos sobre a migração, consulte o arquivo [MIGRACAO_MYSQL.md](./MIGRACAO_MYSQL.md).
-
 ## 🗄️ Banco de Dados
 
 - **SGBD:** MySQL 8.0+

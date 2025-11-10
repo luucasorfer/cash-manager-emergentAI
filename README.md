@@ -1,12 +1,12 @@
-# MoneyWatch - Sistema de Controle de Gastos Pessoais
+# Cash Management - Sistema de Controle de Gastos Pessoais
 
-![MoneyWatch](https://img.shields.io/badge/MoneyWatch-Controle%20Financeiro-emerald)
+![CashManagement](https://img.shields.io/badge/Cash%20Management-Controle%20Financeiro-emerald)
 ![Python](https://img.shields.io/badge/Python-3.9+-blue)
 ![React](https://img.shields.io/badge/React-19.0-61dafb)
 ![FastAPI](https://img.shields.io/badge/FastAPI-0.110-009688)
-![MongoDB](https://img.shields.io/badge/MongoDB-Latest-47A248)
+![MySQL](https://img.shields.io/badge/MySQL-Latest-47A248)
 
-Sistema completo de gerenciamento financeiro pessoal desenvolvido com FastAPI (Python), React (JavaScript) e MongoDB.
+Sistema completo de gerenciamento financeiro pessoal desenvolvido com FastAPI (Python), React (JavaScript) e MySQL.
 
 ## 🎯 Funcionalidades
 
@@ -48,7 +48,7 @@ Certifique-se de ter instalado:
 
 - **Node.js** 18+ ([Download](https://nodejs.org/))
 - **Python** 3.9+ ([Download](https://www.python.org/downloads/))
-- **MongoDB** 5.0+ ([Download](https://www.mongodb.com/try/download/community))
+- **MySQL** 5.0+ ([Download](https://www.apachefriends.org/pt_br/download.html))
 - **Yarn** (gerenciador de pacotes): `npm install -g yarn`
 - **Git** ([Download](https://git-scm.com/))
 
