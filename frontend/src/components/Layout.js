@@ -11,6 +11,7 @@ import {
   Target,
   Menu,
   X,
+  Settings,
 } from "lucide-react";
 
 const Layout = ({ children }) => {
@@ -19,9 +20,7 @@ const Layout = ({ children }) => {
 
   const menuItems = [
     { path: "/", icon: Home, label: "Dashboard" },
-    { path: "/categories", icon: Tag, label: "Categorias" },
     { path: "/fixed-expenses", icon: CreditCard, label: "Gastos Fixos" },
-    { path: "/fixed-expense-templates", icon: FileText, label: "Templates" },
     {
       path: "/variable-expenses",
       icon: ShoppingCart,
@@ -34,6 +33,11 @@ const Layout = ({ children }) => {
       label: "Reserva de Emergência",
     },
     { path: "/savings-goals", icon: Target, label: "Metas" },
+    /*Categorias deve ficar em configurações*/
+    //{ path: "/categories", icon: Tag, label: "Categorias" },
+
+    /*Templates deve ficar em configurações*/
+    //{ path: "/fixed-expense-templates", icon: FileText, label: "Templates" },
   ];
 
   return (
@@ -112,8 +116,29 @@ const Layout = ({ children }) => {
             </ul>
           </nav>
 
-          {/* Footer */}
+          {/* Settings Section */}
           <div className="p-4 border-t border-slate-200">
+            <Link
+              to="/settings"
+              onClick={() => setSidebarOpen(false)}
+              className={`
+                flex items-center gap-3 px-4 py-3 rounded-lg
+                transition-all duration-200
+                ${
+                  location.pathname === "/settings"
+                    ? "bg-emerald-500 text-white shadow-lg shadow-emerald-500/30"
+                    : "text-slate-600 hover:bg-slate-100 hover:text-slate-900"
+                }
+              `}
+              data-testid="nav-settings"
+            >
+              <Settings size={20} />
+              <span className="font-medium">Configurações</span>
+            </Link>
+          </div>
+
+          {/* Footer */}
+          <div className="p-4">
             <p className="text-xs text-slate-500 text-center">
               © 2025 Cash Monitor
             </p>
@@ -123,7 +148,7 @@ const Layout = ({ children }) => {
 
       {/* Main content */}
       <div className="flex-1 flex flex-col overflow-hidden">
-        {/* Top bar */}
+        {/* Top bar 
         <header className="bg-white shadow-sm border-b border-slate-200 px-6 py-4">
           <div className="flex items-center justify-between">
             <button
@@ -141,7 +166,7 @@ const Layout = ({ children }) => {
             </div>
           </div>
         </header>
-
+        */}
         {/* Content */}
         <main className="flex-1 overflow-auto p-6">{children}</main>
       </div>

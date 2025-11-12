@@ -35,12 +35,14 @@ const VariableExpenses = () => {
     open: false,
     expense: null,
   });
+
   const [formData, setFormData] = useState({
     name: "",
     category_id: "",
     amount: "",
     date: new Date().toISOString().split("T")[0],
     installments: "1",
+    current_installment: "1",
     notes: "",
   });
 
@@ -94,6 +96,7 @@ const VariableExpenses = () => {
         installments: parseInt(formData.installments),
         date: new Date(formData.date).toISOString(),
       });
+
       toast.success("Gasto variável adicionado!");
       setModalOpen(false);
       setFormData({
@@ -127,6 +130,7 @@ const VariableExpenses = () => {
         ...formData,
         amount: parseFloat(formData.amount),
         installments: parseInt(formData.installments),
+        current_installment: parseInt(formData.current_installment),
         date: new Date(formData.date).toISOString(),
       });
       toast.success("Gasto variável atualizado!");
@@ -183,7 +187,8 @@ const VariableExpenses = () => {
       category_id: expense.category_id,
       amount: expense.amount.toString(),
       date: new Date(expense.date).toISOString().split("T")[0],
-      installments: expense.installments.toString(),
+      installments: expense.installments?.toString() || "1",
+      current_installment: expense.current_installment?.toString() || "1",
       notes: expense.notes || "",
     });
     setModalOpen(true);
@@ -197,6 +202,7 @@ const VariableExpenses = () => {
       amount: "",
       date: new Date().toISOString().split("T")[0],
       installments: "1",
+      current_installment: "1",
       notes: "",
     });
     setModalOpen(true);
@@ -273,6 +279,16 @@ const VariableExpenses = () => {
             </option>
           ))}
         </select>
+        {expenses.length > 0 && (
+          <span className="ml-auto text-slate-700 font-medium">
+            Total de Gastos:{" "}
+            <span className="text-amber-800">
+              {formatCurrency(
+                expenses.reduce((sum, exp) => sum + exp.amount, 0),
+              )}
+            </span>
+          </span>
+        )}
       </div>
 
       <Card>
@@ -463,19 +479,41 @@ const VariableExpenses = () => {
                 />
               </div>
             </div>
-            <div className="space-y-2">
-              <Label htmlFor="installments">Número de Parcelas</Label>
-              <Input
-                id="installments"
-                type="number"
-                min="1"
-                value={formData.installments}
-                onChange={(e) =>
-                  setFormData({ ...formData, installments: e.target.value })
-                }
-                data-testid="expense-installments-input"
-              />
+            <div className="grid grid-cols-2 gap-4">
+              {/* Parcela Atual */}
+              <div className="space-y-2">
+                <Label htmlFor="current_installment">Parcela</Label>
+                <Input
+                  id="current_installment"
+                  type="number"
+                  min="1"
+                  value={formData.current_installment}
+                  onChange={(e) =>
+                    setFormData({
+                      ...formData,
+                      current_installment: e.target.value,
+                    })
+                  }
+                  data-testid="expense-current-installment-input"
+                />
+              </div>
+
+              {/* Total de Parcelas */}
+              <div className="space-y-2">
+                <Label htmlFor="installments">Número de Parcelas</Label>
+                <Input
+                  id="installments"
+                  type="number"
+                  min="1"
+                  value={formData.installments}
+                  onChange={(e) =>
+                    setFormData({ ...formData, installments: e.target.value })
+                  }
+                  data-testid="expense-installments-input"
+                />
+              </div>
             </div>
+
             <div className="space-y-2">
               <Label htmlFor="notes">Observações (opcional)</Label>
               <Textarea

@@ -10,6 +10,7 @@ import VariableExpenses from "./pages/VariableExpenses";
 import Incomes from "./pages/Incomes";
 import EmergencyReserve from "./pages/EmergencyReserve";
 import SavingsGoals from "./pages/SavingsGoals";
+import Settings from "./pages/Settings";
 import Layout from "./components/Layout";
 import { Toaster } from "@/components/ui/sonner";
 
@@ -37,6 +38,7 @@ function App() {
             <Route path="/incomes" element={<Incomes />} />
             <Route path="/emergency-reserve" element={<EmergencyReserve />} />
             <Route path="/savings-goals" element={<SavingsGoals />} />
+            <Route path="/settings" element={<Settings />} />
           </Routes>
         </Layout>
       </BrowserRouter>

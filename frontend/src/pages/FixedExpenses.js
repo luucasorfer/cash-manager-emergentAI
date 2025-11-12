@@ -317,6 +317,16 @@ const FixedExpenses = () => {
             </option>
           ))}
         </select>
+        {expenses.length > 0 && (
+          <span className="ml-auto text-slate-700 font-medium">
+            Total de Gastos:{" "}
+            <span className="text-amber-800">
+              {formatCurrency(
+                expenses.reduce((sum, exp) => sum + exp.amount, 0),
+              )}
+            </span>
+          </span>
+        )}
       </div>
 
       <Card>

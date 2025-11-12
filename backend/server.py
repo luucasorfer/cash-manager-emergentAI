@@ -285,6 +285,7 @@ class VariableExpenseCreate(BaseModel):
     payment_method: Optional[PaymentMethod] = None
     date: datetime
     installments: int = 1
+    current_installment: int = 1
     notes: Optional[str] = None
 
 class VariableExpenseUpdate(BaseModel):
@@ -294,6 +295,7 @@ class VariableExpenseUpdate(BaseModel):
     payment_method: Optional[PaymentMethod] = None
     date: Optional[datetime] = None
     installments: Optional[int] = None
+    current_installment: Optional[int] = None
     notes: Optional[str] = None
 
 
@@ -710,7 +712,7 @@ async def create_variable_expense(input: VariableExpenseCreate, db: AsyncSession
             payment_type_id = payment_type_map.get(input.payment_method)
         
         db_expense = VariableExpenseDB(
-            name=f"{input.name} {i+1}/{input.installments}" if input.installments > 1 else input.name,
+            name=f"{input.name}" if input.installments > 1 else input.name,
             category_id=input.category_id,
             amount=input.amount,
             payment_type_id=payment_type_id,
@@ -750,6 +752,10 @@ async def update_variable_expense(expense_id: int, input: VariableExpenseUpdate,
             setattr(expense, "payment_type_id", payment_type_map.get(value))
         else:
             setattr(expense, key, value)
+
+    # --- Depuração ---
+    print("Dados atualizados:")
+    print(f"id={expense.id} valor={expense.amount} parcela='{expense.current_installment}' n_parcelas={expense.installments}")
     
     await db.commit()
     await db.refresh(expense)
@@ -1030,17 +1036,6 @@ async def get_dashboard(month: int, year: int, db: AsyncSession = Depends(get_db
     # --- Total de todas as despesas 
     total_expenses = sum(e.amount for e in fixed_expenses) + sum(e.amount for e in variable_expenses)
     
-    print("Fixed expenses pagos:")
-    for e in fixed_expenses:
-        if e.status == "paid":
-            print(f"id={e.id} amount={e.amount} status='{e.status}' type={type(e.amount)}")
-
-    print("Variable expenses pagos:")
-    for e in variable_expenses:
-        if e.status == "paid":
-            print(f"id={e.id} amount={e.amount} status='{e.status}' type={type(e.amount)}")
-
-
     # --- Total apenas das despesas pagas
     total_expenses_paid = (
         sum(e.amount for e in fixed_expenses if e.status == "paid") +

@@ -92,6 +92,9 @@ const Dashboard = () => {
 
   return (
     <div className="space-y-6" data-testid="dashboard-page">
+      <div className="flex justify-between items-center">
+        <h1 className="text-3xl font-bold text-slate-900">Dashboard</h1>
+      </div>
       {/* Month/Year Selector */}
       <div className="flex items-center gap-4 bg-white rounded-xl p-4 shadow-md">
         <Calendar className="text-emerald-600" size={24} />
@@ -230,7 +233,9 @@ const Dashboard = () => {
                         {expense.type === "fixed"
                           ? `${expense.due_day
                               .toString()
-                              .padStart(2, "0")}/${currentMonth}/${currentYear}`
+                              .padStart(2, "0")}/${currentMonth
+                              .toString()
+                              .padStart(2, "0")}/${currentYear}`
                           : new Date(expense.date).toLocaleDateString("pt-BR")}
                       </td>
                       <td className="text-center py-3 px-4">
